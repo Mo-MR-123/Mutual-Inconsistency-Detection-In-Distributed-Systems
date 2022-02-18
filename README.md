@@ -1,1 +1,1 @@
-# DS-Group7
+# Mutual-Inconsistency-Detection-In-Distributed-Systems-Group7
