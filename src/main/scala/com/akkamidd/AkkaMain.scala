@@ -9,7 +9,6 @@ import scala.collection.mutable.Map
 
 object AkkaMain extends App {
   val greeterMain: ActorSystem[GreeterMain.SayHello] = ActorSystem(GreeterMain(), "AkkaMain")
-
   greeterMain ! SayHello("Charles")
 }
 
