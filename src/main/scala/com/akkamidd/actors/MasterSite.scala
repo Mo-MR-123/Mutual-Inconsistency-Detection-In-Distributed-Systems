@@ -2,14 +2,14 @@ package com.akkamidd.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.akkamidd.actors.Site.FileMessages
+import com.akkamidd.actors.Site.SiteProtocol
 
 import scala.util.hashing.MurmurHash3
 
 // the master actor who spawn the sites
 object MasterSite {
   sealed trait MainMessage
-  final case class Broadcast(msg: Site.FileMessages) extends MainMessage
+  final case class Broadcast(msg: Site.SiteProtocol) extends MainMessage
 
   def apply(): Behavior[MainMessage] =
     Behaviors.setup { context =>
@@ -18,21 +18,25 @@ object MasterSite {
       val siteB = context.spawn(Site(), "B")
 
       // upload files
-      siteA ! Site.FileUpload("A", "test")
-      siteA ! Site.FileUpload("B", "test2")
-      siteB ! Site.FileUpload("A", "test")
-      siteB ! Site.FileUpload("B", "test3")
+      val time_a1 = System.currentTimeMillis().toString
+      siteA ! Site.FileUpload("A", time_a1)
+      val time_b1 = System.currentTimeMillis().toString
+      siteA ! Site.FileUpload("B", time_b1)
+      val time_a2 = System.currentTimeMillis().toString
+      siteB ! Site.FileUpload("A", time_a2)
+      val time_b2 = System.currentTimeMillis().toString
+      siteB ! Site.FileUpload("B", time_b2)
 
       // update files
-      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + "test").toString, 0)
-      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + "test2").toString, 0)
-      siteB ! Site.FileUpdate(MurmurHash3.stringHash("B" + "test3").toString, 0)
+      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + time_a1).toString, 0)
+      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + time_a2).toString, 0)
+      siteB ! Site.FileUpdate(MurmurHash3.stringHash("B" + time_b1).toString, 0)
 
       Behaviors.receiveMessage {
         case MasterSite.Broadcast(msg) =>
           context.children.foreach { child =>
             context.log.info(child.toString)
-            child.unsafeUpcast[FileMessages] ! msg
+            child.unsafeUpcast[SiteProtocol] ! msg
           }
           Behaviors.same
 

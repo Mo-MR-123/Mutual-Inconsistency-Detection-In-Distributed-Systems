@@ -12,7 +12,7 @@ object Site {
 
   // FileMessagesReq: message types accepted for requests
   sealed trait FileMessagesReq extends SiteProtocol
-  final case class FileUpload(site: String) extends FileMessagesReq
+  final case class FileUpload(site: String, timestamp: String) extends FileMessagesReq
   final case class FileDeletion() extends FileMessagesReq
   final case class FileUpdate(hashFile: String, version: Int) extends FileMessagesReq
 
@@ -24,10 +24,10 @@ object Site {
   val fileList: immutable.Map[String, immutable.Map[String, Int]] = Map[String, immutable.Map[String, Int]]()
 
   def apply(): Behavior[SiteProtocol] = Behaviors.receive {
-    case (context, FileUpload(siteID)) =>
+    case (context, FileUpload(siteID, timestamp)) =>
       // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
       // example = hash concatenation of 'A' + filename 'test' -> 10002938
-      val originPointer: String = MurmurHash3.stringHash(siteID.concat(System.currentTimeMillis().toString)).toString
+      val originPointer: String = MurmurHash3.stringHash(siteID.concat(timestamp)).toString
 
       // Check if the file already exists by checking the hash in the originPointers map.
       // Edge case: in case two files are uploaded at the same time which result in same hash.
@@ -45,15 +45,15 @@ object Site {
 
       Behaviors.same
 
-    case (context, FileUpdate(hashFile: String, version: Int)) =>
+    case (context, FileUpdate(originPointer: String, version: Int)) =>
       // Check if the hashFile exists
-      if (versionVector.contains(hashFile)) {
-        // Increment the versionVector corresponding to hashFile by 1.
-        versionVector.put(hashFile, versionVector(hashFile) + 1)
-        context.log.info(s"File $hashFile is requested to be updated. vv becomes = $versionVector")
+      if (fileList.contains(originPointer)) {
+        // Increment the versionVector corresponding to originPointer by 1.
+        fileList ++ (originPointer, fileList(originPointer) + 1)
+        context.log.info(s"File $originPointer is requested to be updated. vv becomes = $fileList(originPointer)")
         Behaviors.same
       } else {
-        context.log.info(s"fileHash = $hashFile does not exist in versionVector = $versionVector")
+        context.log.info(s"fileHash = $originPointer does not exist in versionVector = $fileList(originPointer)")
         Behaviors.unhandled
       }
 
