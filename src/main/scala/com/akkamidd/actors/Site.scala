@@ -3,37 +3,42 @@ package com.akkamidd.actors
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 
-import scala.collection.mutable
+import scala.collection.immutable
 import scala.util.hashing.MurmurHash3
 
 object Site {
-  sealed trait FileMessages
-  final case class FileUpload(siteID: String, fileName: String) extends FileMessages
-  final case class FileDeletion() extends FileMessages
-  final case class FileUpdate(hashFile: String, version: Int) extends FileMessages
-  final case class FileUpdatedConfirm(siteName:String) extends FileMessages
+  // SiteProtocol: top-level distinction of file messages
+  sealed trait SiteProtocol
 
-  val versionVector: mutable.Map[String, Int] = mutable.Map[String, Int]() // eg versionVector: A->1, B->2
-  val originPointers: mutable.Map[String, String] = mutable.Map[String, String]() //
+  // FileMessagesReq: message types accepted for requests
+  sealed trait FileMessagesReq extends SiteProtocol
+  final case class FileUpload(site: String) extends FileMessagesReq
+  final case class FileDeletion() extends FileMessagesReq
+  final case class FileUpdate(hashFile: String, version: Int) extends FileMessagesReq
 
-  def apply(sideID: String): Behavior[FileMessages] = Behaviors.receive {
-    case (context, FileUpload(siteID, fileName)) =>
-      // Concat siteID with fileName and hash the result.
-      // This is done to ensure unique id for each file uploaded.
-      val fileHash: String = MurmurHash3.stringHash(siteID.concat(fileName)).toString
+  // FileMessagesResp: file messages accepted for response
+  sealed trait FileMessagesResp extends SiteProtocol
+  final case class FileUpdatedConfirm(siteName:String) extends FileMessagesResp
+
+  // A hashmap mapping origin pointers of files to their correponding version vectors
+  val fileList: immutable.Map[String, immutable.Map[String, Int]] = Map[String, immutable.Map[String, Int]]()
+
+  def apply(): Behavior[SiteProtocol] = Behaviors.receive {
+    case (context, FileUpload(siteID)) =>
+      // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
+      // example = hash concatenation of 'A' + filename 'test' -> 10002938
+      val originPointer: String = MurmurHash3.stringHash(siteID.concat(System.currentTimeMillis().toString)).toString
 
       // Check if the file already exists by checking the hash in the originPointers map.
-      // Two options possible here:
-      //    1: Overwrite/Reset the existing value of fileHash in versionVector and originPointer.
-      //    2: Ignore this message and don't do anything.
-      // For now the second option is done. TODO: check whether to use 1st option instead
-      if (originPointers.contains(fileHash)) {
-        context.log.info(s"fileHash = $fileHash already exists in originPointers = $originPointers")
+      // Edge case: in case two files are uploaded at the same time which result in same hash.
+      if (fileList.contains(originPointer)) {
+        context.log.info(s"originPointer = $originPointer already exists in fileList = $fileList")
         Behaviors.unhandled
       }
 
-      originPointers.put(fileHash, fileName)
-      versionVector.put(fileHash, 0)
+      // Version vector is a list containing what version of a file the different sites have
+      // example = versionVector: (A->1, B->2)
+      val versionVector: immutable.Map[String, Int] = Map[String, Int](siteID, 0)
 
       context.log.info(s"Generated file hash for site $siteID")
       context.log.info(s"File $siteID is uploaded! Element of version vector = $versionVector")
@@ -52,7 +57,8 @@ object Site {
         Behaviors.unhandled
       }
 
-    case _ =>
+    case (c, m) =>
+      c.log.info(m.toString)
       Behaviors.unhandled
   }
 }

@@ -9,13 +9,13 @@ import scala.util.hashing.MurmurHash3
 // the master actor who spawn the sites
 object MasterSite {
   sealed trait MainMessage
-  final case class Broadcast() extends MainMessage
+  final case class Broadcast(msg: Site.FileMessages) extends MainMessage
 
   def apply(): Behavior[MainMessage] =
     Behaviors.setup { context =>
       // create/spawn sites
-      val siteA = context.spawn(Site("A"), "A")
-      val siteB = context.spawn(Site("B"), "B")
+      val siteA = context.spawn(Site(), "A")
+      val siteB = context.spawn(Site(), "B")
 
       // upload files
       siteA ! Site.FileUpload("A", "test")
@@ -29,12 +29,10 @@ object MasterSite {
       siteB ! Site.FileUpdate(MurmurHash3.stringHash("B" + "test3").toString, 0)
 
       Behaviors.receiveMessage {
-        case MasterSite.Broadcast() =>
-          context.log.info("hello")
-          val childrenList= context.children
-          for (i <- childrenList) {
-            context.log.info(i.toString)
-            i.asInstanceOf[ActorRef[FileMessages]] ! Site.FileUpdate(MurmurHash3.stringHash("B" + "test3").toString, 1)
+        case MasterSite.Broadcast(msg) =>
+          context.children.foreach { child =>
+            context.log.info(child.toString)
+            child.unsafeUpcast[FileMessages] ! msg
           }
           Behaviors.same
 
