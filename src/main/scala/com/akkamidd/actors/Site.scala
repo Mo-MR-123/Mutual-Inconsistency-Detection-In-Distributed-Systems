@@ -12,22 +12,26 @@ object Site {
 
   // FileMessagesReq: message types accepted for requests
   sealed trait FileMessagesReq extends SiteProtocol
-  final case class FileUpload(site: String) extends FileMessagesReq
+  final case class FileUpload() extends FileMessagesReq
   final case class FileDeletion() extends FileMessagesReq
-  final case class FileUpdate(hashFile: String, version: Int) extends FileMessagesReq
+  final case class FileUpdate(originPointer: String) extends FileMessagesReq
 
   // FileMessagesResp: file messages accepted for response
   sealed trait FileMessagesResp extends SiteProtocol
   final case class FileUpdatedConfirm(siteName:String) extends FileMessagesResp
 
-  // A hashmap mapping origin pointers of files to their correponding version vectors
+  // A hashmap mapping origin pointers of files to their corresponding version vectors
   val fileList: immutable.Map[String, immutable.Map[String, Int]] = Map[String, immutable.Map[String, Int]]()
 
   def apply(): Behavior[SiteProtocol] = Behaviors.receive {
-    case (context, FileUpload(siteID)) =>
+    case (context, FileUpload()) =>
+      val siteID = context.self.path.name
+
       // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
       // example = hash concatenation of 'A' + filename 'test' -> 10002938
-      val originPointer: String = MurmurHash3.stringHash(siteID.concat(System.currentTimeMillis().toString)).toString
+      val originPointer: String = MurmurHash3.stringHash(
+        siteID.concat(System.currentTimeMillis().toString)
+      ).toString
 
       // Check if the file already exists by checking the hash in the originPointers map.
       // Edge case: in case two files are uploaded at the same time which result in same hash.
@@ -39,13 +43,14 @@ object Site {
       // Version vector is a list containing what version of a file the different sites have
       // example = versionVector: (A->1, B->2)
       val versionVector: immutable.Map[String, Int] = Map[String, Int](siteID, 0)
+      fileList += Map[String, immutable.Map[String, Int]](originPointer, versionVector)
 
       context.log.info(s"Generated file hash for site $siteID")
-      context.log.info(s"File $siteID is uploaded! Element of version vector = $versionVector")
+      context.log.info(s"File uploaded! originPointer = $originPointer , fileList = $fileList")
 
       Behaviors.same
 
-    case (context, FileUpdate(hashFile: String, version: Int)) =>
+    case (context, FileUpdate(originPointer)) =>
       // Check if the hashFile exists
       if (versionVector.contains(hashFile)) {
         // Increment the versionVector corresponding to hashFile by 1.
@@ -53,7 +58,7 @@ object Site {
         context.log.info(s"File $hashFile is requested to be updated. vv becomes = $versionVector")
         Behaviors.same
       } else {
-        context.log.info(s"fileHash = $hashFile does not exist in versionVector = $versionVector")
+        context.log.info(s"fileHash = $originPointer does not exist in fileList = $fileList")
         Behaviors.unhandled
       }
 
