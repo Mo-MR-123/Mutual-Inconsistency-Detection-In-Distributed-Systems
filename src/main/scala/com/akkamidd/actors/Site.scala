@@ -15,30 +15,25 @@ object Site {
   // FileMessagesReq: message types accepted for requests
   sealed trait FileMessagesReq extends SiteProtocol
 
-  final case class FileUpload(siteID: ActorRef[Site.SiteProtocol], timestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], fileName: String) extends FileMessagesReq
-
+  final case class FileUpload(timestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], fileName: String) extends FileMessagesReq
   final case class FileDeletion() extends FileMessagesReq
-
-  final case class FileUpdate(originPointer: (String, String), siteID: ActorRef[Site.SiteProtocol]) extends FileMessagesReq
-
+  final case class FileUpdate(originPointer: (String, String), parent: ActorRef[MasterSite.MasterSiteProtocol]) extends FileMessagesReq
   final case class FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], fileName: String, parent: ActorRef[MasterSite.MasterSiteProtocol]) extends FileMessagesReq
 
   // FileMessagesResp: file messages accepted for response
   sealed trait FileMessagesResp extends SiteProtocol
-
-  final case class FileUpdatedConfirm(siteName: String) extends FileMessagesResp
+  final case class FileUpdatedConfirm(originPointer: (String, String), updatedVersionVector: Map[String, Int], siteActor: ActorRef[SiteProtocol]) extends FileMessagesResp
 
   // A hashmap mapping origin pointers of files to their corresponding version vectors
-  val fileList: mutable.Map[(String, String), Map[String, Int]] = mutable.Map[(String, String), Map[String, Int]]()
+  private val fileList: mutable.Map[(String, String), Map[String, Int]] = mutable.Map[(String, String), Map[String, Int]]()
 
   def apply(siteID: String): Behavior[SiteProtocol] = Behaviors.setup { context =>
 
     // TODO: setup subscription to publisher
 
     Behaviors.receiveMessage {
-      case FileUpload(siteID, timestamp, parent, fileName) =>
-        println(siteID)
-        val siteName = siteID.path.name
+      case FileUpload(timestamp, parent, fileName) =>
+        val siteName = context.self.path.name
 
         // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
         // example = hash concatenation of 'A' + filename 'test' -> 10002938
@@ -63,17 +58,19 @@ object Site {
 
         Behaviors.same
 
-      case FileUpdate(originPointer: (String, String), siteID: ActorRef[Site.SiteProtocol]) =>
+      case FileUpdate(originPointer: (String, String), parent) =>
         // Check if the hashFile exists
         if (fileList.contains(originPointer)) {
           // Increment the versionVector corresponding to originPointer by 1.
-          val siteName = siteID.path.name
+          val siteName = context.self.path.name
 
           val newVersion: Int = fileList(originPointer)(siteName) + 1
           val newVersionMap = Map[String, Int](siteName -> newVersion)
           fileList(originPointer) = newVersionMap
 
           context.log.info(s"File $originPointer is updated. fileList becomes = $fileList")
+          parent ! Broadcast(FileUpdatedConfirm(originPointer = originPointer, updatedVersionVector = newVersionMap, siteActor = context.self), context.self)
+
           Behaviors.same
         } else {
           context.log.info(s"fileHash = $originPointer does not exist in fileList = $fileList")
@@ -99,7 +96,7 @@ object Site {
         }
 
       case _ =>
-        Behaviors.unhandled
+        Behaviors.empty
     }
   }
 }
