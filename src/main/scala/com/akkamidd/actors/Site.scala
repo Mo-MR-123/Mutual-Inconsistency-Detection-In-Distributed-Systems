@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.akkamidd.actors.MasterSite.Broadcast
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import scala.util.hashing.MurmurHash3
 
 
@@ -21,7 +21,7 @@ object Site {
 
   final case class FileUpdate(originPointer: (String, String), siteID: ActorRef[Site.SiteProtocol]) extends FileMessagesReq
 
-  final case class FileDuplicate(originPointer: (String, String), versionVector: immutable.Map[String, Int], fileName: String) extends FileMessagesReq
+  final case class FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], fileName: String, parent: ActorRef[MasterSite.MasterSiteProtocol]) extends FileMessagesReq
 
   // FileMessagesResp: file messages accepted for response
   sealed trait FileMessagesResp extends SiteProtocol
@@ -29,14 +29,15 @@ object Site {
   final case class FileUpdatedConfirm(siteName: String) extends FileMessagesResp
 
   // A hashmap mapping origin pointers of files to their corresponding version vectors
-  var fileList: mutable.Map[(String, String), immutable.Map[String, Int]] = mutable.Map[(String, String), immutable.Map[String, Int]]()
+  val fileList: mutable.Map[(String, String), Map[String, Int]] = mutable.Map[(String, String), Map[String, Int]]()
 
-  def apply(): Behavior[SiteProtocol] = Behaviors.setup { context =>
+  def apply(siteID: String): Behavior[SiteProtocol] = Behaviors.setup { context =>
 
     // TODO: setup subscription to publisher
 
     Behaviors.receiveMessage {
       case FileUpload(siteID, timestamp, parent, fileName) =>
+        println(siteID)
         val siteName = siteID.path.name
 
         // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
@@ -55,7 +56,7 @@ object Site {
         val versionVector = Map[String, Int](siteName -> 0)
         fileList += (originPointer -> versionVector)
 
-        parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName), context.self)
+        parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent), context.self)
 
         context.log.info(s"Generated file hash for site $siteID")
         context.log.info(s"File uploaded! originPointer = $originPointer , fileList = $fileList")
@@ -79,17 +80,17 @@ object Site {
           Behaviors.unhandled
         }
 
-      case FileDuplicate(originPointer: (String, String), versionVector: immutable.Map[String, Int], filename: String) =>
+      case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent) =>
         val siteName = context.self.path.name
         // Check if site is already listed in version vector
         if (versionVector.contains(siteName)) {
           // Check if fileList actually keeps track of the file
           if (!fileList.contains(originPointer)) {
             val newVersionVector = versionVector ++ Map(siteName -> 0)
-            fileList += ((originPointer._1, originPointer._2) -> newVersionVector)
-            context.log.info(s"site $siteName has duplicated $originPointer using version vector $versionVector. Filename $filename")
+            fileList += (originPointer -> newVersionVector)
+            context.log.info(s"site $siteName has duplicated $originPointer using version vector $versionVector. fileList $fileList")
           } else {
-            fileList += ((originPointer._1, originPointer._2) -> versionVector)
+            fileList += (originPointer -> versionVector)
           }
           Behaviors.same
         } else {
