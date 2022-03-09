@@ -8,10 +8,10 @@ import scala.util.hashing.MurmurHash3
 
 // the master actor who spawn the sites
 object MasterSite {
-  sealed trait MainMessage
-  final case class Broadcast(msg: Site.SiteProtocol, from: ActorRef[Site.SiteProtocol]) extends MainMessage
+  sealed trait MasterSiteProtocol
+  final case class Broadcast(msg: Site.SiteProtocol, from: ActorRef[Site.SiteProtocol]) extends MasterSiteProtocol
 
-  def apply(): Behavior[MainMessage] =
+  def apply(): Behavior[MasterSiteProtocol] =
     Behaviors.setup { context =>
       // create/spawn sites
       val siteA = context.spawn(Site(), "A")
@@ -19,28 +19,18 @@ object MasterSite {
 
       // upload files
       val time_a1 = System.currentTimeMillis().toString
-      siteA ! Site.FileUpload(siteA, time_a1)
-      val time_b1 = time_a1 + 1
-      siteA ! Site.FileUpload(siteB, time_b1)
-      val time_a2 = time_b1 + 1
-      siteB ! Site.FileUpload(siteA, time_a2)
-      val time_b2 = time_a2 + 1
-      siteB ! Site.FileUpload(siteB, time_b2)
+      siteA ! Site.FileUpload(siteA, time_a1,context.self, "test.txt")
 
       println("\"A\" + time_a1   " + MurmurHash3.stringHash("A" + time_a1))
-      println("\"A\" + time_a2   " + MurmurHash3.stringHash("A" + time_a2))
-      println("\"B\" + time_b1   " + MurmurHash3.stringHash("B" + time_b1))
 
       // update files
-      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + time_a1), siteA)
-      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + time_a2), siteA)
-      siteA ! Site.FileUpdate(MurmurHash3.stringHash("A" + time_a1), siteA)
-      siteB ! Site.FileUpdate(MurmurHash3.stringHash("B" + time_b1), siteB)
+      siteA ! Site.FileUpdate(("A", time_a1), siteA)
+      siteA ! Site.FileUpdate(("A", time_a1), siteA)
 
       Behaviors.receiveMessage {
         case MasterSite.Broadcast(msg, from: ActorRef[Site.SiteProtocol]) =>
           context.children.foreach { child =>
-            if (!child.eq(from)) {
+            if (!child.equals(from)) {
               context.log.info(child.toString)
               child.unsafeUpcast[SiteProtocol] ! msg
             }
