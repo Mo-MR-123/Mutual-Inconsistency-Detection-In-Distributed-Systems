@@ -1,13 +1,9 @@
 package com.akkamidd.actors
-import akka.actor.typed.scaladsl.{ Behaviors, Routers }
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.Site.SiteProtocol
-import akka.actor.typed.scaladsl.TimerScheduler
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.Duration
+
 import scala.util.hashing.MurmurHash3
-import akka.actor.typed.{ ActorRef, Behavior, SupervisorStrategy }
 
 // the master actor who spawn the sites
 object MasterSite {
@@ -21,6 +17,8 @@ object MasterSite {
       val siteA = context.spawn(Site(), "A")
       val siteB = context.spawn(Site(), "B")
       val siteC = context.spawn(Site(), "C")
+
+      val sitesList: List[ActorRef[SiteProtocol]] = List(siteA, siteB, siteC)
 
       // upload files
       val time_a1 = System.currentTimeMillis().toString
@@ -41,18 +39,8 @@ object MasterSite {
 
       Behaviors.receiveMessage {
         case MasterSite.Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol]) =>
-
-          if (from.equals(siteA)) {
-            siteB ! msg
-            siteC ! msg
-          }
-          else if (from.equals(siteB)) {
-            siteA ! msg
-            siteC ! msg
-          }
-          else if (from.equals(siteC)) {
-            siteB ! msg
-            siteA ! msg
+          sitesList.foreach { child =>
+            child ! msg
           }
           Behaviors.same
 

@@ -1,28 +1,19 @@
 package com.akkamidd.actors
 
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.MasterSite.Broadcast
-
-import scala.collection.mutable
-import scala.util.hashing.MurmurHash3
 
 
 object Site {
-  // SiteProtocol: top-level distinction of file messages
+  // SiteProtocol: top-level distinction of file messages, message types accepted for requests
   sealed trait SiteProtocol
 
-  // FileMessagesReq: message types accepted for requests
-  sealed trait FileMessagesReq extends SiteProtocol
-
-  final case class FileUpload(timestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], fileName: String) extends FileMessagesReq
-  final case class FileDeletion() extends FileMessagesReq
-  final case class FileUpdate(originPointer: (String, String), parent: ActorRef[MasterSite.MasterSiteProtocol]) extends FileMessagesReq
-  final case class FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], fileName: String, parent: ActorRef[MasterSite.MasterSiteProtocol]) extends FileMessagesReq
-
-  // FileMessagesResp: file messages accepted for response
-  sealed trait FileMessagesResp extends SiteProtocol
-  final case class FileUpdatedConfirm(originPointer: (String, String), updatedVersionVector: Map[String, Int], siteActor: ActorRef[SiteProtocol]) extends FileMessagesResp
+  final case class FileUpload(timestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], fileName: String) extends SiteProtocol
+  final case class FileDeletion() extends SiteProtocol
+  final case class FileUpdate(originPointer: (String, String), parent: ActorRef[MasterSite.MasterSiteProtocol]) extends SiteProtocol
+  final case class FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], fileName: String, parent: ActorRef[MasterSite.MasterSiteProtocol]) extends SiteProtocol
+  final case class FileUpdatedConfirm(originPointer: (String, String), updatedVersionVector: Map[String, Int], siteActor: ActorRef[SiteProtocol]) extends SiteProtocol
   final case class printMap() extends SiteProtocol
 
   def apply(): Behavior[SiteProtocol] =
@@ -47,9 +38,6 @@ object Site {
   }
 
   def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
-
-    // TODO: setup subscription to publisher
-
     Behaviors.receiveMessage {
       case FileUpload(timestamp, parent, fileName) =>
         val siteName = context.self.path.name
@@ -102,7 +90,6 @@ object Site {
 
           context.log.info(s"File $originPointer is updated. fileList becomes = $newFileList")
           parent ! Broadcast(FileUpdatedConfirm(originPointer = originPointer, updatedVersionVector = newVersionMap, siteActor = context.self), context.self)
-
           fromMap(newFileList)
         } else {
           context.log.info(s"fileHash = $originPointer does not exist in fileList = $fileList")
