@@ -1,10 +1,13 @@
 package com.akkamidd.actors
-
+import akka.actor.typed.scaladsl.{ Behaviors, Routers }
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.akkamidd.actors.Site.SiteProtocol
-
+import akka.actor.typed.scaladsl.TimerScheduler
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
 import scala.util.hashing.MurmurHash3
+import akka.actor.typed.{ ActorRef, Behavior, SupervisorStrategy }
 
 // the master actor who spawn the sites
 object MasterSite {
@@ -13,10 +16,11 @@ object MasterSite {
 
   def apply(): Behavior[MasterSiteProtocol] =
     Behaviors.setup { context =>
+
       // create/spawn sites
-      val siteA = context.spawn(Site("A"), "A")
-      val siteB = context.spawn(Site("B"), "B")
-      val siteC = context.spawn(Site("C"), "C")
+      val siteA = context.spawn(Site(), "A")
+      val siteB = context.spawn(Site(), "B")
+      val siteC = context.spawn(Site(), "C")
 
       // upload files
       val time_a1 = System.currentTimeMillis().toString
@@ -28,14 +32,16 @@ object MasterSite {
       siteA ! Site.FileUpdate(("A", time_a1), context.self)
       siteA ! Site.FileUpdate(("A", time_a1), context.self)
 
+//      //siteA ! Site.printMap()
+//
+//      context.system.scheduler.scheduleOnce(Duration(2, TimeUnit.SECONDS),siteA,Site.printMap() )
+////      context.system.scheduler.scheduleOnce(Duration(2, TimeUnit.SECONDS ) {
+////        siteA ! Site.printMap()
+////      }
+
       Behaviors.receiveMessage {
         case MasterSite.Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol]) =>
-//          context.children.foreach { child =>
-//            if (!child.equals(from)) {
-//              context.log.info(child.toString)
-//              child.unsafeUpcast[SiteProtocol] ! msg
-//            }
-//          }
+
           if (from.equals(siteA)) {
             siteB ! msg
             siteC ! msg

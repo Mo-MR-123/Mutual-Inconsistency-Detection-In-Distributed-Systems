@@ -23,9 +23,28 @@ object Site {
   // FileMessagesResp: file messages accepted for response
   sealed trait FileMessagesResp extends SiteProtocol
   final case class FileUpdatedConfirm(originPointer: (String, String), updatedVersionVector: Map[String, Int], siteActor: ActorRef[SiteProtocol]) extends FileMessagesResp
+  final case class printMap() extends SiteProtocol
 
-  def apply(siteID: String): Behavior[SiteProtocol] =
+  def apply(): Behavior[SiteProtocol] =
     fromMap(Map[(String, String), Map[String, Int]]()) // A hashmap mapping origin pointers of files to their corresponding version vectors
+
+  def mergeFileList(fileList: Map[(String, String), Map[String, Int]],originPointer: (String,String),versionVector:Map[String, Int]): Map[(String, String), Map[String, Int]]= {
+    if(!fileList.contains(originPointer)) {
+      val newFileList = fileList + (originPointer -> versionVector)
+      newFileList
+    }
+      // or if fileList already has the originPointer
+    else{
+      var oldVersionVector = fileList(originPointer)
+      for((siteName,siteVersion) <- versionVector){
+        if(!oldVersionVector.contains(siteName) || oldVersionVector(siteName)<siteVersion){
+          oldVersionVector += (siteName->siteVersion)
+        }
+      }
+      val newFileList = fileList + (originPointer -> oldVersionVector)
+      newFileList
+    }
+  }
 
   def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
 
@@ -43,7 +62,7 @@ object Site {
         // Edge case: in case two files are uploaded at the same time which result in same hash.
         if (fileList.contains(originPointer)) {
           context.log.info(s"originPointer = $originPointer already exists in fileList = $fileList")
-          fromMap(fileList)
+          Behaviors.same
         }
 
         // Version vector is a list containing what version of a file the different sites have
@@ -102,13 +121,21 @@ object Site {
             parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent), context.self)
             fromMap(newFileList)
           } else {
-            val newFileList = fileList + (originPointer -> versionVector)
+
+          //  val newFileList = fileList + (originPointer -> versionVector)
+           val newFileList = mergeFileList(fileList,originPointer,versionVector)
+            context.log.info(s"site $siteName has version vector $versionVector. fileList $newFileList.")
             fromMap(newFileList)
           }
         } else {
-          context.log.info(s"originPointer = $originPointer already exists in fileList = $fileList. VersionVec $versionVector. Site $siteName")
-          fromMap(fileList)
+          val newFileList = mergeFileList(fileList,originPointer,versionVector)
+          context.log.info(s"originPointer = $originPointer already exists in fileList = $newFileList. VersionVec $versionVector. Site $siteName")
+          fromMap(newFileList)
         }
+
+      case printMap() =>
+        context.log.info(s"I print fileList = $fileList.")
+        fromMap(fileList)
 
       case _ =>
         Behaviors.empty
