@@ -51,7 +51,7 @@ object Site {
         val versionVector = Map[String, Int](siteName -> 0)
         val newFileList = fileList +  (originPointer -> versionVector)
 
-        parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent), context.self)
+        parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent), context.self)
 
         context.log.info(s"Generated file hash for site $siteName")
         context.log.info(s"File uploaded! originPointer = $originPointer , fileList = $newFileList")
@@ -92,9 +92,6 @@ object Site {
 
       case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent) =>
         val siteName = context.self.path.name
-        println(versionVector.contains(siteName))
-        println(versionVector)
-        println(siteName)
         // Check if site is already listed in version vector
         if (!versionVector.contains(siteName)) {
           // Check if fileList actually keeps track of the file
@@ -102,6 +99,7 @@ object Site {
             val newVersionVector = versionVector ++ Map(siteName -> 0)
             val newFileList = fileList + (originPointer -> newVersionVector)
             context.log.info(s"site $siteName has duplicated $originPointer using version vector $versionVector. fileList $newFileList.")
+            parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent), context.self)
             fromMap(newFileList)
           } else {
             val newFileList = fileList + (originPointer -> versionVector)
@@ -116,4 +114,6 @@ object Site {
         Behaviors.empty
     }
   }
+
+//  private def
 }

@@ -29,12 +29,24 @@ object MasterSite {
       siteA ! Site.FileUpdate(("A", time_a1), context.self)
 
       Behaviors.receiveMessage {
-        case MasterSite.Broadcast(msg, from: ActorRef[Site.SiteProtocol]) =>
-          context.children.foreach { child =>
-            if (!child.equals(from)) {
-              context.log.info(child.toString)
-              child.unsafeUpcast[SiteProtocol] ! msg
-            }
+        case MasterSite.Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol]) =>
+//          context.children.foreach { child =>
+//            if (!child.equals(from)) {
+//              context.log.info(child.toString)
+//              child.unsafeUpcast[SiteProtocol] ! msg
+//            }
+//          }
+          if (from.equals(siteA)) {
+            siteB ! msg
+            siteC ! msg
+          }
+          else if (from.equals(siteB)) {
+            siteA ! msg
+            siteC ! msg
+          }
+          else if (from.equals(siteC)) {
+            siteB ! msg
+            siteA ! msg
           }
           Behaviors.same
 
