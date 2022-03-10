@@ -24,10 +24,10 @@ object Site {
   sealed trait FileMessagesResp extends SiteProtocol
   final case class FileUpdatedConfirm(originPointer: (String, String), updatedVersionVector: Map[String, Int], siteActor: ActorRef[SiteProtocol]) extends FileMessagesResp
 
-  // A hashmap mapping origin pointers of files to their corresponding version vectors
-  private val fileList: mutable.Map[(String, String), Map[String, Int]] = mutable.Map[(String, String), Map[String, Int]]()
+  def apply(siteID: String): Behavior[SiteProtocol] =
+    fromMap(Map[(String, String), Map[String, Int]]()) // A hashmap mapping origin pointers of files to their corresponding version vectors
 
-  def apply(siteID: String): Behavior[SiteProtocol] = Behaviors.setup { context =>
+  def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
 
     // TODO: setup subscription to publisher
 
@@ -43,20 +43,20 @@ object Site {
         // Edge case: in case two files are uploaded at the same time which result in same hash.
         if (fileList.contains(originPointer)) {
           context.log.info(s"originPointer = $originPointer already exists in fileList = $fileList")
-          Behaviors.unhandled
+          fromMap(fileList)
         }
 
         // Version vector is a list containing what version of a file the different sites have
         // example = versionVector: (A->1, B->2)
         val versionVector = Map[String, Int](siteName -> 0)
-        fileList += (originPointer -> versionVector)
+        val newFileList = fileList +  (originPointer -> versionVector)
 
         parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent), context.self)
 
-        context.log.info(s"Generated file hash for site $siteID")
-        context.log.info(s"File uploaded! originPointer = $originPointer , fileList = $fileList")
+        context.log.info(s"Generated file hash for site $siteName")
+        context.log.info(s"File uploaded! originPointer = $originPointer , fileList = $newFileList")
 
-        Behaviors.same
+        fromMap(newFileList)
 
       case FileUpdate(originPointer: (String, String), parent) =>
         // Check if the hashFile exists
@@ -66,33 +66,50 @@ object Site {
 
           val newVersion: Int = fileList(originPointer)(siteName) + 1
           val newVersionMap = Map[String, Int](siteName -> newVersion)
-          fileList(originPointer) = newVersionMap
 
-          context.log.info(s"File $originPointer is updated. fileList becomes = $fileList")
+          val newFileList = fileList.updatedWith(key = originPointer) {
+            case Some(map) =>
+              val newMap = map.updatedWith(key = siteName) {
+                case Some(i) =>
+                  Some(i + 1)
+
+                case None =>
+                  Some(0)
+              }
+              Some(newMap)
+            case None =>
+              Some(Map(siteName -> 0))
+          }
+
+          context.log.info(s"File $originPointer is updated. fileList becomes = $newFileList")
           parent ! Broadcast(FileUpdatedConfirm(originPointer = originPointer, updatedVersionVector = newVersionMap, siteActor = context.self), context.self)
 
-          Behaviors.same
+          fromMap(newFileList)
         } else {
           context.log.info(s"fileHash = $originPointer does not exist in fileList = $fileList")
-          Behaviors.unhandled
+          fromMap(fileList)
         }
 
       case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent) =>
         val siteName = context.self.path.name
+        println(versionVector.contains(siteName))
+        println(versionVector)
+        println(siteName)
         // Check if site is already listed in version vector
-        if (versionVector.contains(siteName)) {
+        if (!versionVector.contains(siteName)) {
           // Check if fileList actually keeps track of the file
           if (!fileList.contains(originPointer)) {
             val newVersionVector = versionVector ++ Map(siteName -> 0)
-            fileList += (originPointer -> newVersionVector)
-            context.log.info(s"site $siteName has duplicated $originPointer using version vector $versionVector. fileList $fileList")
+            val newFileList = fileList + (originPointer -> newVersionVector)
+            context.log.info(s"site $siteName has duplicated $originPointer using version vector $versionVector. fileList $newFileList.")
+            fromMap(newFileList)
           } else {
-            fileList += (originPointer -> versionVector)
+            val newFileList = fileList + (originPointer -> versionVector)
+            fromMap(newFileList)
           }
-          Behaviors.same
         } else {
-          context.log.info(s"originPointer = $originPointer already exists in fileList = $fileList")
-          Behaviors.unhandled
+          context.log.info(s"originPointer = $originPointer already exists in fileList = $fileList. VersionVec $versionVector. Site $siteName")
+          fromMap(fileList)
         }
 
       case _ =>
