@@ -3,7 +3,7 @@ package com.akkamidd.actors
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.MasterSite.Broadcast
-
+import org.slf4j.Logger
 
 object Site {
   // SiteProtocol: top-level distinction of file messages, message types accepted for requests
@@ -40,6 +40,15 @@ object Site {
       val newFileList = fileList + (originPointer -> oldVersionVector)
       newFileList
     }
+  }
+
+  private def inconcistencyDetection(
+                                      log: Logger,
+                                      fileListP1: Map[(String, String), Map[String, Int]],
+                                      fileListP2: Map[(String, String), Map[String, Int]]
+                                    ): Unit = {
+
+    log.info(s"")
   }
 
   def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
