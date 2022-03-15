@@ -47,8 +47,38 @@ object Site {
                                       fileListP1: Map[(String, String), Map[String, Int]],
                                       fileListP2: Map[(String, String), Map[String, Int]]
                                     ): Unit = {
+//    val merged = Map[(String, String), Map[String, Int]]()
+    // List(OriginPointer, Version vectors Partition 1, Version vectors Partition 2)
+    val zippedLists = (fileListP1 zip fileListP1).map(pair => (pair._1._1, pair._1._2, pair._2._2))
+    val fileList = Map[(String, String), Map[String, Int]]()
+    for((originPointer, vv1, vv2) <- zippedLists) {
+      val zipVV = vv1 zip vv2
+      val versionVector = Map[String, Int]()
+      var count1 = 0
+      var count2 = 0
+      for(((siteName, version1), (_, version2)) <- zipVV) {
+        if (version1 > version2) {
+          count1 += 1
+          versionVector ++ (siteName, version1)
+        } else if (version1 < version2) {
+          count2 += 1
+          versionVector ++ (siteName, version2)
+        } else {
+          versionVector ++ (siteName, version1)
+        }
+      }
 
-    log.info(s"")
+
+      if (count1 != 0 && count2 == 0 || count2 != 0 && count1 == 0) {
+        log.info(s"For File $originPointer -> Compatible version conflict detected: $vv1 - $vv2")
+      } else if (count1 != 0 && count2 != 0) {
+        log.info(s"For File $originPointer -> Incompatible version conflict detected: $vv1 - $vv2")
+      } else {
+        log.info(s"For File $originPointer -> no version conflict detected: $vv1 - $vv2")
+      }
+      fileList ++ (originPointer, versionVector)
+    }
+    fileList
   }
 
   def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
