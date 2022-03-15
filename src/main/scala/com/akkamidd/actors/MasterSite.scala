@@ -64,9 +64,6 @@ object MasterSite {
           }
           Behaviors.same
 
-        case message =>
-          Behaviors.same
-
         case _ =>
           Behaviors.unhandled
       }
