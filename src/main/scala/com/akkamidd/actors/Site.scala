@@ -9,12 +9,30 @@ object Site {
   // SiteProtocol: top-level distinction of file messages, message types accepted for requests
   sealed trait SiteProtocol
 
-  final case class FileUpload(timestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], fileName: String) extends SiteProtocol
+  final case class FileUpload(
+                               timestamp: String,
+                               parent: ActorRef[MasterSite.MasterSiteProtocol],
+                               fileName: String,
+                               partitionSet: Set[ActorRef[SiteProtocol]]
+                             ) extends SiteProtocol
   final case class FileDeletion() extends SiteProtocol
-  final case class FileUpdate(originPointer: (String, String), parent: ActorRef[MasterSite.MasterSiteProtocol]) extends SiteProtocol
-  final case class FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], fileName: String, parent: ActorRef[MasterSite.MasterSiteProtocol]) extends SiteProtocol
-  final case class FileUpdatedConfirm(originPointer: (String, String), updatedVersion: Int, siteActor: ActorRef[SiteProtocol]) extends SiteProtocol
-  final case class printMap() extends SiteProtocol
+  final case class FileUpdate(
+                               originPointer: (String, String),
+                               parent: ActorRef[MasterSite.MasterSiteProtocol],
+                               partitionSet: Set[ActorRef[SiteProtocol]]
+                             ) extends SiteProtocol
+  final case class FileDuplicate(
+                                  originPointer: (String, String),
+                                  versionVector: Map[String, Int],
+                                  fileName: String,
+                                  parent: ActorRef[MasterSite.MasterSiteProtocol],
+                                  partitionSet: Set[ActorRef[SiteProtocol]]
+                                ) extends SiteProtocol
+  final case class FileUpdatedConfirm(
+                                       originPointer: (String, String),
+                                       updatedVersion: Int,
+                                       siteActor: ActorRef[SiteProtocol]
+                                     ) extends SiteProtocol
 
   def apply(): Behavior[SiteProtocol] =
     fromMap(Map[(String, String), Map[String, Int]]()) // A hashmap mapping origin pointers of files to their corresponding version vectors
@@ -44,7 +62,7 @@ object Site {
 
   def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
     Behaviors.receiveMessage {
-      case FileUpload(timestamp, parent, fileName) =>
+      case FileUpload(timestamp, parent, fileName, partitionSet) =>
         val siteName = context.self.path.name
 
         // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
@@ -63,14 +81,18 @@ object Site {
         val versionVector = Map[String, Int](siteName -> 0)
         val newFileList = fileList +  (originPointer -> versionVector)
 
-        parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent), context.self)
+        parent ! Broadcast(
+          FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent, partitionSet),
+          context.self,
+          partitionSet
+        )
 
         context.log.info(s"[FileUpload] Generated file hash for site $siteName")
         context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer , fileList = $newFileList")
 
         fromMap(newFileList)
 
-      case FileUpdate(originPointer: (String, String), parent) =>
+      case FileUpdate(originPointer: (String, String), parent, partitionList) =>
         // Check if the hashFile exists
         if (fileList.contains(originPointer)) {
           // Increment the versionVector corresponding to originPointer by 1.
@@ -86,15 +108,19 @@ object Site {
                   Some(i + 1)
 
                 case None =>
-                  Some(0)
+                  Some(-1)
               }
               Some(newMap)
             case None =>
-              Some(Map(siteName -> 0))
+              Some(Map("" -> -1))
           }
 
           context.log.info(s"[FileUpdate] File $originPointer is updated. fileList becomes = $newFileList")
-          parent ! Broadcast(FileUpdatedConfirm(originPointer = originPointer, updatedVersion = newVersion, siteActor = context.self), context.self)
+          parent ! Broadcast(
+            FileUpdatedConfirm(originPointer = originPointer, updatedVersion = newVersion, siteActor = context.self),
+            context.self,
+            partitionList
+          )
 
           fromMap(newFileList)
         } else {
@@ -102,7 +128,7 @@ object Site {
           fromMap(fileList)
         }
 
-      case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent) =>
+      case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent, partitionSet) =>
         val siteName = context.self.path.name
         // Check if site is already listed in version vector
         if (!versionVector.contains(siteName)) { // TODO: check whether to check fileList(originPointer) instead of this
@@ -111,16 +137,21 @@ object Site {
             val newVersionVector = versionVector ++ Map(siteName -> 0)
             val newFileList = fileList + (originPointer -> newVersionVector)
             context.log.info(s"[FileDuplicate] site $siteName has duplicated $originPointer using version vector $versionVector. fileList $newFileList.")
-            parent ! Broadcast(FileDuplicate(originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent), context.self)
+
+            parent ! Broadcast(
+              FileDuplicate(originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent, partitionSet),
+              context.self,
+              partitionSet
+            )
+
             fromMap(newFileList)
           } else {
-          //  val newFileList = fileList + (originPointer -> versionVector)
-            val newFileList = mergeFileList(fileList,originPointer,versionVector)
+            val newFileList = mergeFileList(fileList, originPointer, versionVector)
             context.log.info(s"[FileDuplicate] site $siteName has version vector $versionVector. fileList $newFileList.")
             fromMap(newFileList)
           }
         } else {
-          val newFileList = mergeFileList(fileList,originPointer,versionVector)
+          val newFileList = mergeFileList(fileList, originPointer, versionVector)
           context.log.info(s"[FileDuplicate] originPointer = $originPointer already exists in fileList = $newFileList. VersionVec $versionVector. Site $siteName")
           fromMap(newFileList)
         }
@@ -139,7 +170,7 @@ object Site {
               }
               Some(newMap)
             case None =>
-              Some(Map(siteThatUpdatedVersion -> -1))
+              Some(Map("" -> -1))
           }
 
           context.log.info(s"[FileUpdatedConfirm] originPointer = $originPointer, version = $newVersion, newFileList = $newFileList. Site ${context.self.path.name}")
@@ -148,9 +179,6 @@ object Site {
           context.log.error(s"originPointer = $originPointer not in fileList = $fileList. newVersion $newVersion. Site ${context.self.path.name}")
           Behaviors.unhandled
         }
-      case printMap() =>
-        context.log.info(s"I print fileList = $fileList.")
-        fromMap(fileList)
 
       case _ =>
         Behaviors.empty

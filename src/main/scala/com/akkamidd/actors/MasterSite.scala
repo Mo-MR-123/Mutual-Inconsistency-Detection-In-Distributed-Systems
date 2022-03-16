@@ -9,7 +9,11 @@ import scala.util.hashing.MurmurHash3
 // the master actor who spawn the sites
 object MasterSite {
   sealed trait MasterSiteProtocol
-  final case class Broadcast(msg: Site.SiteProtocol, from: ActorRef[Site.SiteProtocol]) extends MasterSiteProtocol
+  final case class Broadcast(
+                              msg: Site.SiteProtocol,
+                              from: ActorRef[Site.SiteProtocol],
+                              partitionSet: Set[ActorRef[SiteProtocol]]
+                            ) extends MasterSiteProtocol
 
   //find the partition that the part is in
   def splitPartition(sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]],partToSplit:Set[ActorRef[SiteProtocol]]): List[Set[ActorRef[SiteProtocol]]] ={
@@ -81,7 +85,6 @@ object MasterSite {
       if (set.contains(from)) {
         return set
       }
-
     }
     // if the site is not found in partitionList , return a empty set
     Set[ActorRef[SiteProtocol]]()
@@ -102,25 +105,24 @@ object MasterSite {
 
       // upload files
       val time_a1 = System.currentTimeMillis().toString
-      siteA ! Site.FileUpload(time_a1, context.self, "test.txt")
+
+      val partitionSet1 = findPartitionSet(siteA, init_sitePartitionList)
+      siteA ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet1)
 
       // split into {A,B}{C,D}
-      init_sitePartitionList = splitPartition(init_sitePartitionList,Set(siteA, siteB))
-      context.log.info("Split 1, new PartitionList: {}",init_sitePartitionList)
+      init_sitePartitionList = splitPartition(init_sitePartitionList, Set(siteA, siteB))
+      context.log.info("Split 1, new PartitionList: {}", init_sitePartitionList)
       printCurrentNetworkPartition(init_sitePartitionList, context)
 
 //      println("\"A\" + time_a1   " + MurmurHash3.stringHash("A" + time_a1))
+      val partitionSet2 = findPartitionSet(siteA, init_sitePartitionList)
+      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet2)
+      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet2)
 
-      siteA ! Site.FileUpdate(("A", time_a1), context.self)
-      siteA ! Site.FileUpdate(("A", time_a1), context.self)
-
-
-      Thread.sleep(10000)
-
-//      init_sitePartitionList = mergePartition(init_sitePartitionList,Set(siteA, siteB, siteC, siteD))
-//      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
-//      context.log.info(init_sitePartitionList.toString())
-//      printCurrentNetworkPartition(init_sitePartitionList, context)
+      init_sitePartitionList = mergePartition(init_sitePartitionList, Set(siteA, siteB, siteC, siteD))
+      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
+      context.log.info(init_sitePartitionList.toString())
+      printCurrentNetworkPartition(init_sitePartitionList, context)
 
 //      init_sitePartitionList = splitPartition(init_sitePartitionList,Set(siteB,siteC))
 //      context.log.info("Split 2, new PartitionList: {}",init_sitePartitionList)
@@ -130,8 +132,6 @@ object MasterSite {
 //      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
 //      context.log.info(init_sitePartitionList.toString())
 //      printCurrentNetworkPartition(init_sitePartitionList, context)
-
-      var sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]] = init_sitePartitionList
 
 //      // upload files
 //      val time_a1 = System.currentTimeMillis().toString
@@ -145,16 +145,8 @@ object MasterSite {
 //      siteB ! Site.FileUpdate(("A", time_a1), context.self)
 //      siteC ! Site.FileUpdate(("A", time_a1), context.self)
 
-      //      //siteA ! Site.printMap()
-      //
-      //      context.system.scheduler.scheduleOnce(Duration(2, TimeUnit.SECONDS),siteA,Site.printMap() )
-      ////      context.system.scheduler.scheduleOnce(Duration(2, TimeUnit.SECONDS ) {
-      ////        siteA ! Site.printMap()
-      ////      }
-
       Behaviors.receiveMessage {
-        case MasterSite.Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol]) =>
-          val partitionSet = findPartitionSet(from: ActorRef[SiteProtocol], sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]] )
+        case MasterSite.Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
           partitionSet.foreach { child =>
             if(!child.equals(from)) {
               child ! msg
@@ -168,7 +160,4 @@ object MasterSite {
       }
     }
 
-//  def continueExperiment(context: ActorContext[MasterSiteProtocol]): Unit = {
-//
-//  }
 }
