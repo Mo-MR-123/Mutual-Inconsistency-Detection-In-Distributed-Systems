@@ -99,33 +99,51 @@ object MasterSite {
       // test for spliting
       // val sitesList: List[ActorRef[SiteProtocol]] = List(siteA, siteB, siteC, siteD)
       var init_sitePartitionList: List[Set[ActorRef[SiteProtocol]]] = List(Set(siteA,siteB,siteC,siteD))
-      // split into {A,B}{C,D}
-      init_sitePartitionList = splitPartition(init_sitePartitionList,Set(siteA))
-      context.log.info("Split 1, new PartitionList: {}",init_sitePartitionList)
-      printCurrentNetworkPartition(init_sitePartitionList, context)
-
-      init_sitePartitionList = splitPartition(init_sitePartitionList,Set(siteB,siteC))
-      context.log.info("Split 2, new PartitionList: {}",init_sitePartitionList)
-      printCurrentNetworkPartition(init_sitePartitionList, context)
-
-      init_sitePartitionList = mergePartition(init_sitePartitionList,Set(siteA,siteB,siteC,siteD))
-      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
-      context.log.info(init_sitePartitionList.toString())
-      printCurrentNetworkPartition(init_sitePartitionList, context)
-
-      var sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]] = init_sitePartitionList
 
       // upload files
       val time_a1 = System.currentTimeMillis().toString
       siteA ! Site.FileUpload(time_a1, context.self, "test.txt")
 
-      println("\"A\" + time_a1   " + MurmurHash3.stringHash("A" + time_a1))
+      // split into {A,B}{C,D}
+      init_sitePartitionList = splitPartition(init_sitePartitionList,Set(siteA, siteB))
+      context.log.info("Split 1, new PartitionList: {}",init_sitePartitionList)
+      printCurrentNetworkPartition(init_sitePartitionList, context)
+
+//      println("\"A\" + time_a1   " + MurmurHash3.stringHash("A" + time_a1))
+
+      siteA ! Site.FileUpdate(("A", time_a1), context.self)
+      siteA ! Site.FileUpdate(("A", time_a1), context.self)
+
+
+      Thread.sleep(10000)
+
+//      init_sitePartitionList = mergePartition(init_sitePartitionList,Set(siteA, siteB, siteC, siteD))
+//      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
+//      context.log.info(init_sitePartitionList.toString())
+//      printCurrentNetworkPartition(init_sitePartitionList, context)
+
+//      init_sitePartitionList = splitPartition(init_sitePartitionList,Set(siteB,siteC))
+//      context.log.info("Split 2, new PartitionList: {}",init_sitePartitionList)
+//      printCurrentNetworkPartition(init_sitePartitionList, context)
+//
+//      init_sitePartitionList = mergePartition(init_sitePartitionList,Set(siteA,siteD))
+//      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
+//      context.log.info(init_sitePartitionList.toString())
+//      printCurrentNetworkPartition(init_sitePartitionList, context)
+
+      var sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]] = init_sitePartitionList
+
+//      // upload files
+//      val time_a1 = System.currentTimeMillis().toString
+//      siteA ! Site.FileUpload(time_a1, context.self, "test.txt")
+//
+//      println("\"A\" + time_a1   " + MurmurHash3.stringHash("A" + time_a1))
 
       // update files
-      siteA ! Site.FileUpdate(("A", time_a1), context.self)
-      siteA ! Site.FileUpdate(("A", time_a1), context.self)
-      siteB ! Site.FileUpdate(("A", time_a1), context.self)
-      siteC ! Site.FileUpdate(("A", time_a1), context.self)
+//      siteA ! Site.FileUpdate(("A", time_a1), context.self)
+//      siteA ! Site.FileUpdate(("A", time_a1), context.self)
+//      siteB ! Site.FileUpdate(("A", time_a1), context.self)
+//      siteC ! Site.FileUpdate(("A", time_a1), context.self)
 
       //      //siteA ! Site.printMap()
       //
@@ -149,4 +167,8 @@ object MasterSite {
           Behaviors.unhandled
       }
     }
+
+//  def continueExperiment(context: ActorContext[MasterSiteProtocol]): Unit = {
+//
+//  }
 }
