@@ -54,11 +54,13 @@ object Site {
                                       fileListP1: Map[(String, String), Map[String, Int]],
                                       fileListP2: Map[(String, String), Map[String, Int]]
                                     ): Map[(String, String), Map[String, Int]] = {
+    // Assume both lists are same format
     val zippedLists = (fileListP1 zip fileListP2).map(pair => (pair._1._1, pair._1._2, pair._2._2))
-    val fileList = Map[(String, String), Map[String, Int]]()
+    var fileList = Map[(String, String), Map[String, Int]]()
+
     for((originPointer, vv1, vv2) <- zippedLists) {
       val zipVV = vv1 zip vv2
-      val versionVector = Map[String, Int]()
+      var versionVector = Map[String, Int]()
 
       // Keep track on the differences with regards to the version vector for each partition respective.
       var count1 = 0
@@ -67,12 +69,12 @@ object Site {
       for(((siteName, version1), (_, version2)) <- zipVV) {
         if (version1 > version2) {
           count1 += 1
-          versionVector ++ (siteName, version1)
+          versionVector = versionVector ++ (siteName, version1)
         } else if (version1 < version2) {
           count2 += 1
-          versionVector ++ (siteName, version2)
+          versionVector = versionVector ++ (siteName, version2)
         } else {
-          versionVector ++ (siteName, version1) // doesn't matter which version we take.
+          versionVector = versionVector ++ (siteName, version1) // doesn't matter which version we take.
         }
       }
 
@@ -84,7 +86,7 @@ object Site {
       } else {
         log.info(s"For File $originPointer -> no version conflict detected: $vv1 - $vv2")
       }
-      fileList ++ (originPointer, versionVector)
+      fileList = fileList ++ (originPointer, versionVector)
     }
     fileList
   }
