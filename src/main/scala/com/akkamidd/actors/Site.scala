@@ -139,6 +139,7 @@ object Site {
       }
       fileList = fileList + (originPointer -> versionVector)
     }
+    log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
     fileList
   }
 
@@ -239,7 +240,7 @@ object Site {
       case Merged(to, parent, partitionSet) =>
         context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
         to ! CheckInconsistency(fileList, parent, partitionSet)
-        Behaviors.same
+        fromMap(fileList)
 
       case CheckInconsistency(fromFileList, parent, partitionSet) =>
         val newFileList = inconcistencyDetection(context.log, fileList, fromFileList)

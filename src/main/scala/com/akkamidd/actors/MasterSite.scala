@@ -141,6 +141,7 @@ object MasterSite {
 
       val partitionSet3 = findPartitionSet(siteA, init_sitePartitionList)
       siteA ! Merged(siteC, context.self, partitionSet3)
+//      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet3)
 
       // merge {A} , {B} in {A} {B, C} {D} -> {A, B, C} {D}
       // siteA ! Merged(siteB, )
