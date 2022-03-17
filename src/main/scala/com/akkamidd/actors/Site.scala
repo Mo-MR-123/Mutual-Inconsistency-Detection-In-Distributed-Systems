@@ -6,7 +6,7 @@ import com.akkamidd.actors.MasterSite.Broadcast
 
 
 object Site {
-  // SiteProtocol: top-level distinction of file messages, message types accepted for requests
+  // SiteProtocol: The messages that define the protocol between Sites
   sealed trait SiteProtocol
 
   final case class FileUpload(
@@ -34,6 +34,7 @@ object Site {
                                        siteActor: ActorRef[SiteProtocol]
                                      ) extends SiteProtocol
 
+
   def apply(): Behavior[SiteProtocol] =
     fromMap(Map[(String, String), Map[String, Int]]()) // A hashmap mapping origin pointers of files to their corresponding version vectors
 
@@ -47,8 +48,7 @@ object Site {
       val newFileList = fileList + (originPointer -> versionVector)
       newFileList
     }
-      // or if fileList already has the originPointer
-    else{
+    else { // or if fileList already has the originPointer
       var oldVersionVector = fileList(originPointer)
       for((siteName,siteVersion) <- versionVector){
         if(!oldVersionVector.contains(siteName) || oldVersionVector(siteName)<siteVersion){
@@ -57,6 +57,28 @@ object Site {
       }
       val newFileList = fileList + (originPointer -> oldVersionVector)
       newFileList
+    }
+  }
+
+  private def updateFileList(
+                      fileList: Map[(String, String), Map[String, Int]],
+                      originPointer: (String, String),
+                      siteName: String,
+                      newVal: Int
+                    ): Map[(String, String), Map[String, Int]] =
+  {
+    fileList.updatedWith(key = originPointer) {
+      case Some(map) =>
+        val newMap = map.updatedWith(key = siteName) {
+          case Some(_) =>
+            Some(newVal)
+
+          case None =>
+            Some(-1)
+        }
+        Some(newMap)
+      case None =>
+        Some(Map("" -> -1))
     }
   }
 
@@ -79,7 +101,7 @@ object Site {
         // Version vector is a list containing what version of a file the different sites have
         // example = versionVector: (A->1, B->2)
         val versionVector = Map[String, Int](siteName -> 0)
-        val newFileList = fileList +  (originPointer -> versionVector)
+        val newFileList = fileList + (originPointer -> versionVector)
 
         parent ! Broadcast(
           FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent, partitionSet),
@@ -95,25 +117,11 @@ object Site {
       case FileUpdate(originPointer: (String, String), parent, partitionList) =>
         // Check if the hashFile exists
         if (fileList.contains(originPointer)) {
-          // Increment the versionVector corresponding to originPointer by 1.
           val siteName = context.self.path.name
 
+          // Increment the versionVector corresponding to originPointer by 1.
           val newVersion: Int = fileList(originPointer)(siteName) + 1
-//          val newVersionMap = Map[String, Int](siteName -> newVersion)
-
-          val newFileList = fileList.updatedWith(key = originPointer) {
-            case Some(map) =>
-              val newMap = map.updatedWith(key = siteName) {
-                case Some(i) =>
-                  Some(i + 1)
-
-                case None =>
-                  Some(-1)
-              }
-              Some(newMap)
-            case None =>
-              Some(Map("" -> -1))
-          }
+          val newFileList = updateFileList(fileList, originPointer, siteName, newVersion)
 
           context.log.info(s"[FileUpdate] File $originPointer is updated. fileList becomes = $newFileList")
           parent ! Broadcast(
@@ -131,7 +139,7 @@ object Site {
       case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent, partitionSet) =>
         val siteName = context.self.path.name
         // Check if site is already listed in version vector
-        if (!versionVector.contains(siteName)) { // TODO: check whether to check fileList(originPointer) instead of this
+        if (!versionVector.contains(siteName)) {
           // Check if fileList actually keeps track of the file
           if (!fileList.contains(originPointer)) {
             val newVersionVector = versionVector ++ Map(siteName -> 0)
@@ -159,19 +167,7 @@ object Site {
       case FileUpdatedConfirm(originPointer, newVersion, fromSite) =>
         val siteThatUpdatedVersion = fromSite.path.name
         if (fileList.contains(originPointer) && fileList(originPointer).contains(siteThatUpdatedVersion)) {
-          val newFileList = fileList.updatedWith(key = originPointer) {
-            case Some(map) =>
-              val newMap = map.updatedWith(key = siteThatUpdatedVersion) {
-                case Some(_) =>
-                  Some(newVersion)
-
-                case None =>
-                  Some(-1)
-              }
-              Some(newMap)
-            case None =>
-              Some(Map("" -> -1))
-          }
+          val newFileList = updateFileList(fileList, originPointer, siteThatUpdatedVersion, newVersion)
 
           context.log.info(s"[FileUpdatedConfirm] originPointer = $originPointer, version = $newVersion, newFileList = $newFileList. Site ${context.self.path.name}")
           fromMap(newFileList)

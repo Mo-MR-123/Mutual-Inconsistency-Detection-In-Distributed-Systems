@@ -3,11 +3,10 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.Site.SiteProtocol
 
-import scala.reflect.Manifest.Nothing
-import scala.util.hashing.MurmurHash3
-
 // the master actor who spawn the sites
 object MasterSite {
+
+  // MasterSiteProtocol - Defines the messages that dictates the protocol of the master site.
   sealed trait MasterSiteProtocol
   final case class Broadcast(
                               msg: Site.SiteProtocol,
@@ -15,8 +14,13 @@ object MasterSite {
                               partitionSet: Set[ActorRef[SiteProtocol]]
                             ) extends MasterSiteProtocol
 
+
   //find the partition that the part is in
-  def splitPartition(sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]],partToSplit:Set[ActorRef[SiteProtocol]]): List[Set[ActorRef[SiteProtocol]]] ={
+  def splitPartition(
+                      sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]],
+                      partToSplit:Set[ActorRef[SiteProtocol]]
+                    ): List[Set[ActorRef[SiteProtocol]]] =
+  {
     var newPartitionList:List[Set[ActorRef[SiteProtocol]]] = sitesPartitionedList
     for (set <- newPartitionList){
       if (partToSplit.subsetOf(set)) {
@@ -33,7 +37,11 @@ object MasterSite {
     throw new Exception("Not valid sub-partition in current DAG")
   }
 
-  def mergePartition(sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]], partToMerge:Set[ActorRef[SiteProtocol]]): List[Set[ActorRef[SiteProtocol]]] = {
+  def mergePartition(
+                      sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]],
+                      partToMerge:Set[ActorRef[SiteProtocol]]
+                    ): List[Set[ActorRef[SiteProtocol]]] =
+  {
     var setsToMerge: List[Set[ActorRef[SiteProtocol]]] = List()
     var newPartitionList:List[Set[ActorRef[SiteProtocol]]] = sitesPartitionedList
 
@@ -60,7 +68,11 @@ object MasterSite {
     newPartitionList :+ partToMerge
   }
 
-  def printCurrentNetworkPartition(sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]], context: ActorContext[MasterSiteProtocol]): Unit = {
+  def printCurrentNetworkPartition(
+                                    sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]],
+                                    context: ActorContext[MasterSiteProtocol]
+                                  ): Unit =
+  {
     val result = new StringBuilder()
 
     result.append("The network partition is: " )
@@ -80,7 +92,11 @@ object MasterSite {
   }
 
   // given a site "from", find a partition that the site is currently in
-  def findPartitionSet(from: ActorRef[SiteProtocol],sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]]): Set[ActorRef[SiteProtocol]] = {
+  def findPartitionSet(
+                        from: ActorRef[SiteProtocol],
+                        sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]]
+                      ): Set[ActorRef[SiteProtocol]] =
+  {
     for (set <- sitesPartitionedList) {
       if (set.contains(from)) {
         return set
@@ -146,11 +162,11 @@ object MasterSite {
 //      siteC ! Site.FileUpdate(("A", time_a1), context.self)
 
       Behaviors.receiveMessage {
-        case MasterSite.Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
+        case Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
           partitionSet.foreach { child =>
             if(!child.equals(from)) {
               child ! msg
-              context.log.info("from {} , send message to {}",from,child.toString)
+              context.log.info("from {} , send message to {}", from, child.toString)
             }
           }
           Behaviors.same
