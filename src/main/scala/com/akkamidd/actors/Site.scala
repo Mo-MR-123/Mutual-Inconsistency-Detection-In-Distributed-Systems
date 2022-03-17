@@ -3,7 +3,7 @@ package com.akkamidd.actors
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.MasterSite.Broadcast
-
+import org.slf4j.Logger
 
 object Site {
   // SiteProtocol: The messages that define the protocol between Sites
@@ -65,8 +65,7 @@ object Site {
                       originPointer: (String, String),
                       siteName: String,
                       newVal: Int
-                    ): Map[(String, String), Map[String, Int]] =
-  {
+                    ): Map[(String, String), Map[String, Int]] = {
     fileList.updatedWith(key = originPointer) {
       case Some(map) =>
         val newMap = map.updatedWith(key = siteName) {
@@ -80,6 +79,55 @@ object Site {
       case None =>
         Some(Map("" -> -1))
     }
+  }
+
+  /**
+   * Helper method for merging two file lists
+   * @param log Logger for printing out information to the terminal.
+   * @param fileListP1 File list of Partition 1.
+   * @param fileListP2 File List of Partition 2.
+   * @return Merged file List.
+   */
+  private def inconcistencyDetection(
+                                      log: Logger,
+                                      fileListP1: Map[(String, String), Map[String, Int]],
+                                      fileListP2: Map[(String, String), Map[String, Int]]
+                                    ): Map[(String, String), Map[String, Int]] = {
+    // Assume both lists are same format
+    val zippedLists = (fileListP1 zip fileListP2).map(pair => (pair._1._1, pair._1._2, pair._2._2))
+    var fileList = Map[(String, String), Map[String, Int]]()
+
+    for ((originPointer, vv1, vv2) <- zippedLists) {
+      val zipVV = vv1 zip vv2
+      var versionVector = Map[String, Int]()
+
+      // Keep track on the differences with regards to the version vector for each partition respective.
+      var count1 = 0
+      var count2 = 0
+
+      for (((siteName, version1), (_, version2)) <- zipVV) {
+        if (version1 > version2) {
+          count1 += 1
+          versionVector = versionVector ++ (siteName, version1)
+        } else if (version1 < version2) {
+          count2 += 1
+          versionVector = versionVector ++ (siteName, version2)
+        } else {
+          versionVector = versionVector ++ (siteName, version1) // doesn't matter which version we take.
+        }
+      }
+
+      // Check whether one of the version vectors is dominant over the other or if both contain conflicting updated site versions.
+      if (count1 != 0 && count2 == 0 || count2 != 0 && count1 == 0) {
+        log.info(s"For File $originPointer -> Compatible version conflict detected: $vv1 - $vv2")
+      } else if (count1 != 0 && count2 != 0) {
+        log.info(s"For File $originPointer -> Incompatible version conflict detected: $vv1 - $vv2")
+      } else {
+        log.info(s"For File $originPointer -> no version conflict detected: $vv1 - $vv2")
+      }
+      fileList = fileList ++ (originPointer, versionVector)
+    }
+    fileList
   }
 
   def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup { context =>
