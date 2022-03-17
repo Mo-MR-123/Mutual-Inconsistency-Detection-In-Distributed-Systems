@@ -33,7 +33,19 @@ object Site {
                                        updatedVersion: Int,
                                        siteActor: ActorRef[SiteProtocol]
                                      ) extends SiteProtocol
-
+  final case class Merged(
+                           to: ActorRef[SiteProtocol],
+                           parent: ActorRef[MasterSite.MasterSiteProtocol],
+                           partitionSet: Set[ActorRef[SiteProtocol]]
+                         ) extends SiteProtocol
+  final case class CheckInconsistency(
+                           fileList: Map[(String, String), Map[String, Int]],
+                           parent: ActorRef[MasterSite.MasterSiteProtocol],
+                           partitionSet: Set[ActorRef[SiteProtocol]]
+                         ) extends SiteProtocol
+  final case class ReplaceFileList(
+                                    fileListToReplace: Map[(String, String), Map[String, Int]]
+                                  ) extends SiteProtocol
 
   def apply(): Behavior[SiteProtocol] =
     fromMap(Map[(String, String), Map[String, Int]]()) // A hashmap mapping origin pointers of files to their corresponding version vectors
@@ -108,12 +120,12 @@ object Site {
       for (((siteName, version1), (_, version2)) <- zipVV) {
         if (version1 > version2) {
           count1 += 1
-          versionVector = versionVector ++ (siteName, version1)
+          versionVector = versionVector + (siteName -> version1)
         } else if (version1 < version2) {
           count2 += 1
-          versionVector = versionVector ++ (siteName, version2)
+          versionVector = versionVector + (siteName -> version2)
         } else {
-          versionVector = versionVector ++ (siteName, version1) // doesn't matter which version we take.
+          versionVector = versionVector + (siteName -> version1) // doesn't matter which version we take.
         }
       }
 
@@ -125,7 +137,7 @@ object Site {
       } else {
         log.info(s"For File $originPointer -> no version conflict detected: $vv1 - $vv2")
       }
-      fileList = fileList ++ (originPointer, versionVector)
+      fileList = fileList + (originPointer -> versionVector)
     }
     fileList
   }
@@ -223,6 +235,24 @@ object Site {
           context.log.error(s"originPointer = $originPointer not in fileList = $fileList. newVersion $newVersion. Site ${context.self.path.name}")
           Behaviors.unhandled
         }
+
+      case Merged(to, parent, partitionSet) =>
+        context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
+        to ! CheckInconsistency(fileList, parent, partitionSet)
+        Behaviors.same
+
+      case CheckInconsistency(fromFileList, parent, partitionSet) =>
+        val newFileList = inconcistencyDetection(context.log, fileList, fromFileList)
+        parent ! Broadcast(
+          ReplaceFileList(newFileList),
+          context.self,
+          partitionSet
+        )
+        fromMap(newFileList)
+
+      case ReplaceFileList(newFileList) =>
+        context.log.info(s"[ReplaceFileList.${context.self.path.name}] Replaced FileList with newFileList $newFileList")
+        fromMap(newFileList)
 
       case _ =>
         Behaviors.empty

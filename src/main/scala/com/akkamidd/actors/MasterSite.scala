@@ -1,7 +1,7 @@
 package com.akkamidd.actors
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.akkamidd.actors.Site.SiteProtocol
+import com.akkamidd.actors.Site.{Merged, SiteProtocol}
 
 // the master actor who spawn the sites
 object MasterSite {
@@ -133,10 +133,20 @@ object MasterSite {
       siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet2)
       siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet2)
 
+      // merge into {A, B, C, D}
       init_sitePartitionList = mergePartition(init_sitePartitionList, Set(siteA, siteB, siteC, siteD))
       context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
       context.log.info(init_sitePartitionList.toString())
       printCurrentNetworkPartition(init_sitePartitionList, context)
+
+      val partitionSet3 = findPartitionSet(siteA, init_sitePartitionList)
+      siteA ! Merged(siteC, context.self, partitionSet3)
+
+      // merge {A} , {B} in {A} {B, C} {D} -> {A, B, C} {D}
+      // siteA ! Merged(siteB, )
+      //            siteB ! CheckInconsistency(fileListA)
+      //                  1- Call ID for inconsistency checking (fileListA, fileListB) -> new fileList
+      //                  2- Broadcast(ReplaceFileList(newFileList), context.self,
 
 
       Behaviors.receiveMessage {
