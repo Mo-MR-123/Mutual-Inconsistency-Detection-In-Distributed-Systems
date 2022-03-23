@@ -1,7 +1,12 @@
 package com.akkamidd.actors
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.akkamidd.actors.Site.{Merged, SiteProtocol}
+import com.akkamidd.actors.Site.{BroadcastDone, Merged, SiteProtocol}
+import akka.util.Timeout
+
+import scala.concurrent.duration.DurationInt
+import scala.util.Failure
+import scala.util.Success
 
 // the master actor who spawn the sites
 object MasterSite {
@@ -9,11 +14,14 @@ object MasterSite {
   // MasterSiteProtocol - Defines the messages that dictates the protocol of the master site.
   sealed trait MasterSiteProtocol
   final case class Broadcast(
+                              replyTo: ActorRef[MasterSiteProtocol],
                               msg: Site.SiteProtocol,
                               from: ActorRef[Site.SiteProtocol],
                               partitionSet: Set[ActorRef[SiteProtocol]]
                             ) extends MasterSiteProtocol
 
+  final case class HandleBroadcastResp()
+  final case class HandleFileUploadResp(msg: String)
 
   //find the partition that the part is in
   def splitPartition(
@@ -108,6 +116,9 @@ object MasterSite {
 
   def apply(): Behavior[MasterSiteProtocol] =
     Behaviors.setup { context =>
+      // asking someone requires a timeout, if the timeout hits without response
+      // the ask is failed with a TimeoutException
+      implicit val timeout: Timeout = 2.seconds
 
       // create/spawn sites
       val siteA = context.spawn(Site(), "A")
@@ -122,25 +133,45 @@ object MasterSite {
       val time_a1 = System.currentTimeMillis().toString
 
       val partitionSet1 = findPartitionSet(siteA, init_sitePartitionList)
-      siteA ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet1)
+      context.ask(siteA, ref => Site.FileUpload(ref, time_a1, context.self, "test.txt", partitionSet1)) {
+        case Success(BroadcastDone(msg)) => {
+          context.log.info(s"$msg")
+          HandleFileUploadResp(s"$msg")
+        }
+        case Failure(exception) => {
+          context.log.info(s"$exception")
+          HandleFileUploadResp(s"$exception")
+        }
+      }
+
+//      siteA ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet1)
 
       // split into {A,B} {C,D}
       init_sitePartitionList = splitPartition(init_sitePartitionList, Set(siteA, siteB))
       context.log.info("Split 1, new PartitionList: {}", init_sitePartitionList)
       printCurrentNetworkPartition(init_sitePartitionList, context)
 
-      val partitionSet2 = findPartitionSet(siteA, init_sitePartitionList)
-      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet2)
-      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet2)
-
-      // merge into {A, B, C, D}
-      init_sitePartitionList = mergePartition(init_sitePartitionList, Set(siteA, siteB, siteC, siteD))
-      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
-      context.log.info(init_sitePartitionList.toString())
-      printCurrentNetworkPartition(init_sitePartitionList, context)
-
-      val partitionSet3 = findPartitionSet(siteA, init_sitePartitionList)
-      siteA ! Merged(siteC, context.self, partitionSet3)
+//      val partitionSet2 = findPartitionSet(siteA, init_sitePartitionList)
+//
+//      context.ask(siteA, ref => Site.FileUpdate(ref, ("A", time_a1), context.self, partitionSet2)) {
+//        case Success(value) => context.log.info(s"$value")
+//        case Failure(exception) => context.log.info(s"$exception")
+//      }
+//
+//      context.ask(siteA, ref => Site.FileUpdate(ref, ("A", time_a1), context.self, partitionSet2)) {
+//        case Success(value) => context.log.info(s"$value")
+//        case Failure(exception) => context.log.info(s"$exception")
+//      }
+//
+//      // merge into {A, B, C, D}
+//      init_sitePartitionList = mergePartition(init_sitePartitionList, Set(siteA, siteB, siteC, siteD))
+//      context.log.info("Merge 1, new PartitionList: {}",init_sitePartitionList)
+//      context.log.info(init_sitePartitionList.toString())
+//      printCurrentNetworkPartition(init_sitePartitionList, context)
+//
+//      val partitionSet3 = findPartitionSet(siteA, init_sitePartitionList)
+//      siteA ! Merged(siteC, context.self, partitionSet3)
+//
 //      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet3)
 
       // merge {A} , {B} in {A} {B, C} {D} -> {A, B, C} {D}
@@ -151,17 +182,38 @@ object MasterSite {
 
 
       Behaviors.receiveMessage {
-        case Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
+        case Broadcast(replyTo, msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
+          var requestId = 0
+          val requestIdMax = partitionSet.size
+
           partitionSet.foreach { child =>
             if(!child.equals(from)) {
               child ! msg
+              context.log.info(s"$requestId")
+              requestId+=1
+              if (requestId == requestIdMax) {
+                replyTo ! HandleFileUploadResp(s"Done")
+              }
+//              context.ask(child, ref => msg) {
+//                case Success(value) => {
+//                  if (requestId == requestIdMax) {
+//
+//                  } else {
+//                    requestId += 1
+//
+//                  }
+//                }
+//                case Failure(exception) =>
+//              }
               context.log.info("from {} , send message to {}", from, child.toString)
             }
           }
           Behaviors.same
 
-        case _ =>
-          Behaviors.unhandled
+        case HandleFileUploadResp(msg: String) =>
+          context.log.info(s"$msg")
+          Behaviors.same
+
       }
     }
 
