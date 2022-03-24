@@ -20,11 +20,20 @@ object MasterSite {
                               from: ActorRef[Site.SiteProtocol],
                               partitionSet: Set[ActorRef[SiteProtocol]]
                             ) extends MasterSiteProtocol
-  final case class FileUpload(time: String) extends MasterSiteProtocol
-  final case class FileUpdate(time: String) extends MasterSiteProtocol
+  final case class FileUploadMaster(to: String, time: String, partitionSet: Set[String]) extends MasterSiteProtocol
+  final case class FileUpdateMaster(to: String, time: String, partitionSet: Set[String]) extends MasterSiteProtocol
   final case class Merge() extends MasterSiteProtocol
   final case class FileUpdateConfirm(time: String) extends MasterSiteProtocol
   final case class SpawnSite(siteName: String) extends MasterSiteProtocol
+
+  def findSiteGivenName(siteName: String, partitionSet: Set[String], context: ActorContext[MasterSite.MasterSiteProtocol]): ActorRef[SiteProtocol] = {
+    for (child <- context.children) {
+      if (child.path.name.equals((siteName))) {
+        return child
+      }
+    }
+
+  }
 
   def fromPartitionList(context: ActorContext[MasterSiteProtocol])
   : Behaviors.Receive[MasterSiteProtocol] = Behaviors.receiveMessage {
@@ -38,12 +47,13 @@ object MasterSite {
       }
       fromPartitionList(context)
 
-    case FileUpload(to: String, time_a1: String, partitionSet: Set[String]) =>
+    case FileUploadMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
       // TODO: fetch the correct actorRef corresponding to the `to` name
-      siteA ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet1)
+      val site = findSiteGivenName(to, partitionSet, context)
+      site ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet)
       fromPartitionList(context)
 
-    case FileUpdate(to: String, time_a1: String, partitionSet: Set[String]) =>
+    case FileUpdateMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
       siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet)
       fromPartitionList(context)
 
