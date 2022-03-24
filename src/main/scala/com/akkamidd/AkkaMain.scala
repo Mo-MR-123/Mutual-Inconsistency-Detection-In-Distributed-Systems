@@ -1,9 +1,10 @@
 package com.akkamidd
 
+import akka.actor.TypedActor.context
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.ActorContext
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{FileUpdate, FileUpdateConfirm, FileUpload, MasterSiteProtocol, Merge, SpawnSite}
+import com.akkamidd.actors.MasterSite.{ FileUpdateConfirm, FileUploadMaster, MasterSiteProtocol, Merge, SpawnSite}
 import com.akkamidd.actors.Site.SiteProtocol
 import org.slf4j.Logger
 
@@ -12,8 +13,8 @@ import scala.collection.mutable.ListBuffer
 
 object AkkaMain extends App {
 
-  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol], timeout: Long, partitionSet: Set[String]): Unit = {
-    val newPartitionList = mergePartition(partitionList, partitionSet)
+  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol], sitesPartitionedList: List[Set[String]], partToSplit: Set[String], timeout: Long): Unit = {
+    val newPartitionList = mergePartition(sitesPartitionedList, partToSplit)
     masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
     masterSystem ! Merge()
@@ -21,8 +22,8 @@ object AkkaMain extends App {
     Thread.sleep(timeout)
   }
 
-  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol], timeout: Long, partitionSet: Set[String]): Unit = {
-    val newPartitionList = splitPartition(partitionSet, Set(siteA, siteB))
+  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol], sitesPartitionedList: List[Set[String]], partToSplit: Set[String], timeout: Long): Unit = {
+    val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
     masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
@@ -33,9 +34,9 @@ object AkkaMain extends App {
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
                       partToSplit: Set[String]
-                    ): List[Set[ActorRef[SiteProtocol]]] =
+                    ): List[Set[String]] =
   {
-    var newPartitionList:List[Set[ActorRef[SiteProtocol]]] = sitesPartitionedList
+    var newPartitionList:List[Set[String]] = sitesPartitionedList
     for (set <- newPartitionList){
       if (partToSplit.subsetOf(set)) {
         // remove The old partition
@@ -83,7 +84,7 @@ object AkkaMain extends App {
   }
 
   def printCurrentNetworkPartition(
-                                    sitesPartitionedList: ListBuffer[Set[String]],
+                                    sitesPartitionedList: List[Set[String]],
                                     logger: Logger
                                   ): Unit =
   {
@@ -93,8 +94,7 @@ object AkkaMain extends App {
     for(set <- sitesPartitionedList) {
       result.append("{")
       for(site <- set) {
-        result.append(site.path.name)
-        result.append(",")
+        result.append(site + ",")
       }
       // Remove last comma
       result.deleteCharAt(result.length() - 1)
@@ -102,7 +102,7 @@ object AkkaMain extends App {
     }
     // Remove last comma
     result.deleteCharAt(result.length()  - 1)
-    context.log.info(result.toString())
+    logger.info(result.toString())
   }
 
   // given a site "from", find a partition that the site is currently in
@@ -123,7 +123,7 @@ object AkkaMain extends App {
   // upload files
   val time_a1 = System.currentTimeMillis().toString
 
-  val partitionList: mutable.ListBuffer[Set[String]] = ListBuffer()
+  var partitionList: List[Set[String]] = List()
 
   val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
 
@@ -143,17 +143,18 @@ object AkkaMain extends App {
 
   Thread.sleep(500)
 
-  masterSite ! FileUpload(time_a1)
+  masterSite ! FileUploadMaster(time_a1)
 
   // split into {A,B} {C,D}
-  callSplit(masterSite, 500, partitionList)
 
-  masterSite ! FileUpdate(time_a1)
+  callSplit(masterSite, partitionList, Set("A", "B", "C", "D"), 500)
+
+  masterSite ! FileUpdateMaster(time_a1)
 
   Thread.sleep(500)
 
   //  merge into {A, B, C, D}
-  callMerge(masterSite, 500, partitionList)
+  callMerge(masterSite, partitionList, Set("A", "B"), 500)
 
   masterSite ! FileUpdateConfirm(time_a1)
 
