@@ -44,11 +44,11 @@ object AkkaMain extends App {
   }
 
   def mergePartition(
-                      sitesPartitionedList: ListBuffer[Set[String]],
+                      sitesPartitionedList: List[Set[String]],
                       partToMerge: Set[String]
-                    ): Unit =
+                    ): List[Set[String]] =
   {
-    var setsToMerge: List[Set[ActorRef[SiteProtocol]]] = List()
+    var setsToMerge: List[Set[String]] = List()
     var newPartitionList:List[Set[String]] = sitesPartitionedList
 
     if(partToMerge.isEmpty) {
