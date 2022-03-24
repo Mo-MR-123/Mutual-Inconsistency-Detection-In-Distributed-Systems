@@ -1,12 +1,28 @@
 package com.akkamidd
 
-import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.typed.ActorSystem
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{ FileUpdateConfirm, MasterSiteProtocol, Merge, SpawnSite}
-import com.akkamidd.actors.Site.SiteProtocol
+import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol, Merge, SpawnSite}
 import org.slf4j.Logger
 
+
 object AkkaMain extends App {
+
+  def spawnSites(
+                  masterSystem: ActorSystem[MasterSiteProtocol],
+                  siteNameList: List[String],
+                  partitionList: List[Set[String]],
+                  timeout: Long
+                ): List[Set[String]] =
+  {
+    siteNameList.foreach(siteName => {
+      masterSystem ! SpawnSite(siteName)
+    })
+
+    Thread.sleep(timeout)
+
+    siteNameList.toSet +: partitionList
+  }
 
   def callMerge(
                  masterSystem: ActorSystem[MasterSiteProtocol],
@@ -19,7 +35,7 @@ object AkkaMain extends App {
     masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
-    masterSystem ! Merge()
+    masterSystem ! Merge("A", "C", newPartitionList)
 
     Thread.sleep(timeout)
 
@@ -117,57 +133,28 @@ object AkkaMain extends App {
     logger.info(result.toString())
   }
 
-  // given a site "from", find a partition that the site is currently in
-  def findPartitionSet(
-                        from: ActorRef[SiteProtocol],
-                        sitesPartitionedList: List[Set[ActorRef[SiteProtocol]]]
-                      ): Set[ActorRef[SiteProtocol]] =
-  {
-    for (set <- sitesPartitionedList) {
-      if (set.contains(from)) {
-        return set
-      }
-    }
-    // if the site is not found in partitionList , return a empty set
-    Set[ActorRef[SiteProtocol]]()
-  }
-
-  // upload files
-  val time_a1 = System.currentTimeMillis().toString
-
-  var partitionList: List[Set[String]] = List()
 
   val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
 
-  // TODO: Make a function that loops through the amount of actors that need to be spawned from command line and spawn all
-  //  actors needed.
-  masterSite ! SpawnSite("A")
-  masterSite ! SpawnSite("B")
-  masterSite ! SpawnSite("C")
-  masterSite ! SpawnSite("D")
+  var partitionList: List[Set[String]] = spawnSites(masterSite, List("A", "B", "C", "D"), List(), 1000)
 
-  partitionList = Set("A", "B", "C", "D") +: partitionList
-
-  println(partitionList)
-
-  Thread.sleep(500)
-
-  masterSite ! FileUploadMaster(time_a1)
+  // upload files
+  val time_a1 = System.currentTimeMillis().toString
+  masterSite ! FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
 
   // split into {A,B} {C,D}
+  partitionList = callSplit(masterSite, partitionList, Set("A", "B"), 500)
 
-  callSplit(masterSite, partitionList, Set("A", "B", "C", "D"), 500)
+  masterSite ! FileUpdateMasterSite("A", ("A", time_a1) , partitionList)
+  masterSite ! FileUpdateMasterSite("A", ("A", time_a1), partitionList)
 
-  masterSite ! FileUpdateMaster(time_a1)
+//  Thread.sleep(500)
 
-  Thread.sleep(500)
+//  masterSite ! FileUpdateMasterSite("C", ("A", time_a1), partitionList)
 
   //  merge into {A, B, C, D}
-  callMerge(masterSite, partitionList, Set("A", "B"), 500)
+  partitionList = callMerge(masterSite, partitionList, Set("A", "B", "C", "D"), 500)
 
-  masterSite ! FileUpdateConfirm(time_a1)
-
-  masterSite ! FileUpdateConfirm(time_a1)
 }
 
 // merge {A} , {B} in {A} {B, C} {D} -> {A, B, C} {D}
