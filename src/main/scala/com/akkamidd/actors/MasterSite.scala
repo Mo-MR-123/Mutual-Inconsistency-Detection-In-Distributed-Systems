@@ -29,6 +29,10 @@ object MasterSite {
     None
   }
 
+  def getPartitionActorRefSet(context: ActorContext[MasterSite.MasterSiteProtocol], partitionSetString: Set[String]): Set[ActorRef[SiteProtocol]] = {
+
+  }
+
   def fromPartitionList(context: ActorContext[MasterSiteProtocol])
   : Behaviors.Receive[MasterSiteProtocol] = Behaviors.receiveMessage {
 
@@ -43,11 +47,12 @@ object MasterSite {
 
     case FileUploadMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
       // TODO: fetch the correct actorRef corresponding to the `to` name
-      val site = findSiteGivenName(to, context)
+      val site = findSiteGivenName(to, context).getOrElse(throw Exception)
       site ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet)
       fromPartitionList(context)
 
     case FileUpdateMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
+      findSiteGivenName()
       siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet)
       fromPartitionList(context)
 

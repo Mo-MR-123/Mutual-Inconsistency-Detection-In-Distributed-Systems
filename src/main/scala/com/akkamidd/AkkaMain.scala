@@ -43,9 +43,9 @@ object AkkaMain extends App {
   }
 
   def mergePartition(
-                      sitesPartitionedList: ListBuffer[Set[String]],
+                      sitesPartitionedList: List[Set[String]],
                       partToMerge: Set[String]
-                    ): Unit =
+                    ): List[Set[String]] =
   {
     var setsToMerge: List[Set[ActorRef[SiteProtocol]]] = List()
     var newPartitionList:List[Set[String]] = sitesPartitionedList
@@ -114,10 +114,12 @@ object AkkaMain extends App {
   // upload files
   val time_a1 = System.currentTimeMillis().toString
 
-  val partitionList: mutable.ListBuffer[Set[String]] = ListBuffer()
+  var partitionList: List[Set[String]] = List()
 
   val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
 
+  // TODO: Make a function that loops through the amount of actors that need to be spawned from command line and spawn all
+  //  actors needed.
   masterSite ! SpawnSite("A")
   partitionList += "A"
 
@@ -166,3 +168,9 @@ object AkkaMain extends App {
 //            siteB ! CheckInconsistency(fileListA)
 //                  1- Call ID for inconsistency checking (fileListA, fileListB) -> new fileList
 //                  2- Broadcast(ReplaceFileList(newFileList), context.self,
+
+// sbt AkkaMain.scala 24 upload-20 update-0 update-1 split-10 split-15
+// split-10 = List(Set(0, 1,.... 10), Set(11, 12, ... 24))
+// split-15 = List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16, 17, ... 24))
+// split-16 = List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16), Set(17, ... 24))
+// split-24 = List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16), Set(17, ... 23), Set(24))
