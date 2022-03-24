@@ -1,9 +1,10 @@
 package com.akkamidd
 
+import akka.actor.TypedActor.context
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.ActorContext
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{FileUpdate, FileUpdateConfirm, FileUpload, MasterSiteProtocol, Merge, SpawnSite}
+import com.akkamidd.actors.MasterSite.{ FileUpdateConfirm, FileUploadMaster, MasterSiteProtocol, Merge, SpawnSite}
 import com.akkamidd.actors.Site.SiteProtocol
 import org.slf4j.Logger
 
@@ -12,21 +13,30 @@ import scala.collection.mutable.ListBuffer
 
 object AkkaMain extends App {
 
-  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol], sitesPartitionedList: List[Set[String]], partToSplit: Set[String], timeout: Long): Unit = {
+    val newPartitionList = mergePartition(sitesPartitionedList, partToSplit)
+    masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+    masterSystem ! Merge()
 
+    Thread.sleep(timeout)
   }
 
-  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol], sitesPartitionedList: List[Set[String]], partToSplit: Set[String], timeout: Long): Unit = {
+    val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
+    masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
+    Thread.sleep(timeout)
   }
 
   //find the partition that the part is in
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
                       partToSplit: Set[String]
-                    ): List[Set[ActorRef[SiteProtocol]]] =
+                    ): List[Set[String]] =
   {
-    var newPartitionList:List[Set[ActorRef[SiteProtocol]]] = sitesPartitionedList
+    var newPartitionList:List[Set[String]] = sitesPartitionedList
     for (set <- newPartitionList){
       if (partToSplit.subsetOf(set)) {
         // remove The old partition
@@ -47,7 +57,7 @@ object AkkaMain extends App {
                       partToMerge: Set[String]
                     ): List[Set[String]] =
   {
-    var setsToMerge: List[Set[ActorRef[SiteProtocol]]] = List()
+    var setsToMerge: List[Set[String]] = List()
     var newPartitionList:List[Set[String]] = sitesPartitionedList
 
     if(partToMerge.isEmpty) {
@@ -74,7 +84,7 @@ object AkkaMain extends App {
   }
 
   def printCurrentNetworkPartition(
-                                    sitesPartitionedList: ListBuffer[Set[String]],
+                                    sitesPartitionedList: List[Set[String]],
                                     logger: Logger
                                   ): Unit =
   {
@@ -84,8 +94,7 @@ object AkkaMain extends App {
     for(set <- sitesPartitionedList) {
       result.append("{")
       for(site <- set) {
-        result.append(site.path.name)
-        result.append(",")
+        result.append(site + ",")
       }
       // Remove last comma
       result.deleteCharAt(result.length() - 1)
@@ -93,7 +102,7 @@ object AkkaMain extends App {
     }
     // Remove last comma
     result.deleteCharAt(result.length()  - 1)
-    context.log.info(result.toString())
+    logger.info(result.toString())
   }
 
   // given a site "from", find a partition that the site is currently in
@@ -136,27 +145,18 @@ object AkkaMain extends App {
 
   Thread.sleep(500)
 
-  masterSite ! FileUpload(time_a1)
+  masterSite ! FileUploadMaster(time_a1)
 
   // split into {A,B} {C,D}
-  val newPartitionList = splitPartition(partitionList, Set(siteA, siteB))
-  context.log.info("Split 1, new PartitionList: {}", newPartitionList)
-  printCurrentNetworkPartition(newPartitionList, context)
 
-  Thread.sleep(500)
+  callSplit(masterSite, partitionList, Set("A", "B", "C", "D"), 500)
 
-  masterSite ! FileUpdate(time_a1)
+  masterSite ! FileUpdateMaster(time_a1)
 
   Thread.sleep(500)
 
   //  merge into {A, B, C, D}
-  val newPartitionList = mergePartition(partitionList, Set("A", "B", "C", "D"))
-  context.log.info("Merge 1, new PartitionList: {}",newPartitionList)
-  printCurrentNetworkPartition(newPartitionList, context)
-
-  masterSite ! Merge()
-
-  Thread.sleep(500)
+  callMerge(masterSite, partitionList, Set("A", "B"), 500)
 
   masterSite ! FileUpdateConfirm(time_a1)
 
