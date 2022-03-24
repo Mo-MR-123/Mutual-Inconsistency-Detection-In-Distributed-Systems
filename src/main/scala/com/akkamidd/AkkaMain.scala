@@ -1,33 +1,45 @@
 package com.akkamidd
 
-import akka.actor.TypedActor.context
 import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.actor.typed.scaladsl.ActorContext
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{ FileUpdateConfirm, FileUploadMaster, MasterSiteProtocol, Merge, SpawnSite}
+import com.akkamidd.actors.MasterSite.{ FileUpdateConfirm, MasterSiteProtocol, Merge, SpawnSite}
 import com.akkamidd.actors.Site.SiteProtocol
 import org.slf4j.Logger
 
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
-
 object AkkaMain extends App {
 
-  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol], sitesPartitionedList: List[Set[String]], partToSplit: Set[String], timeout: Long): Unit = {
-    val newPartitionList = mergePartition(sitesPartitionedList, partToSplit)
+  def callMerge(
+                 masterSystem: ActorSystem[MasterSiteProtocol],
+                 sitesPartitionedList: List[Set[String]],
+                 partToMerge: Set[String],
+                 timeout: Long
+               ): List[Set[String]] =
+  {
+    val newPartitionList = mergePartition(sitesPartitionedList, partToMerge)
     masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+
     masterSystem ! Merge()
 
     Thread.sleep(timeout)
+
+    newPartitionList
   }
 
-  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol], sitesPartitionedList: List[Set[String]], partToSplit: Set[String], timeout: Long): Unit = {
+  def callSplit(
+                 masterSystem: ActorSystem[MasterSiteProtocol],
+                 sitesPartitionedList: List[Set[String]],
+                 partToSplit: Set[String],
+                 timeout: Long
+               ): List[Set[String]] =
+  {
     val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
     masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     Thread.sleep(timeout)
+
+    newPartitionList
   }
 
   //find the partition that the part is in
@@ -58,7 +70,7 @@ object AkkaMain extends App {
                     ): List[Set[String]] =
   {
     var setsToMerge: List[Set[String]] = List()
-    var newPartitionList:List[Set[String]] = sitesPartitionedList
+    var newPartitionList: List[Set[String]] = sitesPartitionedList
 
     if(partToMerge.isEmpty) {
       return newPartitionList

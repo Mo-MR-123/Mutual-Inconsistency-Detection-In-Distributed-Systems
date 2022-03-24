@@ -20,7 +20,11 @@ object MasterSite {
   final case class FileUpdateConfirm(time: String) extends MasterSiteProtocol
   final case class SpawnSite(siteName: String) extends MasterSiteProtocol
 
-  def findSiteGivenName(siteName: String, context: ActorContext[MasterSite.MasterSiteProtocol]): Option[ActorRef[Nothing]] = {
+  def findSiteGivenName(
+                         siteName: String,
+                         context: ActorContext[MasterSite.MasterSiteProtocol]
+                       ): Option[ActorRef[SiteProtocol]] =
+  {
     for (child <- context.children) {
       if (child.path.name.equals(siteName)) {
         return Some(child)
@@ -29,8 +33,14 @@ object MasterSite {
     None
   }
 
-  def getPartitionActorRefSet(context: ActorContext[MasterSite.MasterSiteProtocol], partitionSetString: Set[String]): Set[ActorRef[SiteProtocol]] = {
-
+  def getPartitionActorRefSet(
+                               context: ActorContext[MasterSite.MasterSiteProtocol],
+                               partitionSetString: Set[String]
+                             ): Set[ActorRef[SiteProtocol]] =
+  {
+    partitionSetString.map(s => {
+      findSiteGivenName(s, context).getOrElse(throw Exception)
+    })
   }
 
   def fromPartitionList(context: ActorContext[MasterSiteProtocol])
@@ -48,7 +58,9 @@ object MasterSite {
     case FileUploadMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
       // TODO: fetch the correct actorRef corresponding to the `to` name
       val site = findSiteGivenName(to, context).getOrElse(throw Exception)
-      site ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet)
+      val partitionSetRefs = getPartitionActorRefSet(context, partitionSet)
+
+      site ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSetRefs)
       fromPartitionList(context)
 
     case FileUpdateMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
