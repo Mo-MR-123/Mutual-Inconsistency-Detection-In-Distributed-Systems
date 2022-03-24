@@ -1,9 +1,10 @@
 package com.akkamidd
 
+import akka.actor.TypedActor.context
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.ActorContext
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{FileUpdate, FileUpdateConfirm, FileUpload, MasterSiteProtocol, Merge, SpawnSite}
+import com.akkamidd.actors.MasterSite.{ FileUpdateConfirm, FileUploadMaster, MasterSiteProtocol, Merge, SpawnSite}
 import com.akkamidd.actors.Site.SiteProtocol
 import org.slf4j.Logger
 
@@ -24,9 +25,9 @@ object AkkaMain extends App {
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
                       partToSplit: Set[String]
-                    ): List[Set[ActorRef[SiteProtocol]]] =
+                    ): List[Set[String]] =
   {
-    var newPartitionList:List[Set[ActorRef[SiteProtocol]]] = sitesPartitionedList
+    var newPartitionList:List[Set[String]] = sitesPartitionedList
     for (set <- newPartitionList){
       if (partToSplit.subsetOf(set)) {
         // remove The old partition
@@ -114,7 +115,7 @@ object AkkaMain extends App {
   // upload files
   val time_a1 = System.currentTimeMillis().toString
 
-  val partitionList: mutable.ListBuffer[Set[String]] = ListBuffer()
+  var partitionList: List[Set[String]] = List()
 
   val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
 
@@ -134,16 +135,16 @@ object AkkaMain extends App {
 
   Thread.sleep(500)
 
-  masterSite ! FileUpload(time_a1)
+  masterSite ! FileUploadMaster (time_a1)
 
   // split into {A,B} {C,D}
-  val newPartitionList = splitPartition(partitionList, Set(siteA, siteB))
+  val newPartitionList = splitPartition(partitionList, Set("A", "B"))
   context.log.info("Split 1, new PartitionList: {}", newPartitionList)
   printCurrentNetworkPartition(newPartitionList, context)
 
   Thread.sleep(500)
 
-  masterSite ! FileUpdate(time_a1)
+  masterSite ! FileUpdateMaster(time_a1)
 
   Thread.sleep(500)
 
