@@ -15,7 +15,6 @@ object Site {
   sealed trait SiteProtocol
 
   final case class FileUpload(
-                               replyTo: ActorRef[SiteProtocol],
                                timestamp: String,
                                parent: ActorRef[MasterSite.MasterSiteProtocol],
                                fileName: String,
@@ -23,13 +22,11 @@ object Site {
                              ) extends SiteProtocol
 //  final case class FileDeletion(replyTo: ActorRef[SiteProtocol]) extends SiteProtocol
   final case class FileUpdate(
-                               replyTo: ActorRef[SiteProtocol],
                                originPointer: (String, String),
                                parent: ActorRef[MasterSite.MasterSiteProtocol],
                                partitionSet: Set[ActorRef[SiteProtocol]]
                              ) extends SiteProtocol
   final case class FileDuplicate(
-                                  replyTo: ActorRef[SiteProtocol],
                                   originPointer: (String, String),
                                   versionVector: Map[String, Int],
                                   fileName: String,
@@ -37,7 +34,6 @@ object Site {
                                   partitionSet: Set[ActorRef[SiteProtocol]]
                                 ) extends SiteProtocol
   final case class FileUpdatedConfirm(
-                                       replyTo: ActorRef[SiteProtocol],
                                        originPointer: (String, String),
                                        updatedVersion: Int,
                                        siteActor: ActorRef[SiteProtocol]
@@ -160,7 +156,7 @@ object Site {
 
     context =>
       Behaviors.receiveMessage {
-        case FileUpload(replyTo, timestamp, parent, fileName, partitionSet) =>
+        case FileUpload(timestamp, parent, fileName, partitionSet) =>
           val siteName = context.self.path.name
 
           // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
@@ -179,31 +175,18 @@ object Site {
           val versionVector = Map[String, Int](siteName -> 0)
           val newFileList = fileList + (originPointer -> versionVector)
 
-          context.ask(
-            parent,
-            ref => Broadcast(
-                    ref,
-                    FileDuplicate(replyTo = replyTo, originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent, partitionSet),
-                    context.self,
-                    partitionSet
-                  )
-          ) {
-            case Success(HandleBroadcastResp(msg)) => replyTo ! BroadcastDone(msg)
-            case Failure(exception) => BroadcastDone(s"$exception")
-          }
-
-  //        parent ! Broadcast(
-  //          FileDuplicate(replyTo = replyTo, originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent, partitionSet),
-  //          context.self,
-  //          partitionSet
-  //        )
+          parent ! Broadcast(
+            FileDuplicate(originPointer = originPointer, versionVector = versionVector, fileName = fileName, parent = parent, partitionSet),
+            context.self,
+            partitionSet
+          )
 
           context.log.info(s"[FileUpload] Generated file hash for site $siteName")
           context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer , fileList = $newFileList")
 
           fromMap(newFileList)
 
-        case FileUpdate(replyTo, originPointer: (String, String), parent, partitionList) =>
+        case FileUpdate(originPointer: (String, String), parent, partitionList) =>
           // Check if the hashFile exists
           if (fileList.contains(originPointer)) {
             val siteName = context.self.path.name
@@ -214,8 +197,7 @@ object Site {
 
             context.log.info(s"[FileUpdate] File $originPointer is updated. fileList becomes = $newFileList")
             parent ! Broadcast(
-              parent,
-              FileUpdatedConfirm(replyTo = replyTo, originPointer = originPointer, updatedVersion = newVersion, siteActor = context.self),
+              FileUpdatedConfirm(originPointer = originPointer, updatedVersion = newVersion, siteActor = context.self),
               context.self,
               partitionList
             )
@@ -226,7 +208,7 @@ object Site {
             fromMap(fileList)
           }
 
-        case FileDuplicate(replyTo, originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent, partitionSet) =>
+        case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent, partitionSet) =>
           val siteName = context.self.path.name
           // Check if site is already listed in version vector
           if (!versionVector.contains(siteName)) {
@@ -237,8 +219,7 @@ object Site {
               context.log.info(s"[FileDuplicate] site $siteName has duplicated $originPointer using version vector $versionVector. fileList $newFileList.")
 
               parent ! Broadcast(
-                parent,
-                FileDuplicate(replyTo = replyTo, originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent, partitionSet),
+                FileDuplicate(originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent, partitionSet),
                 context.self,
                 partitionSet
               )
@@ -255,7 +236,7 @@ object Site {
             fromMap(newFileList)
           }
 
-        case FileUpdatedConfirm(replyTo, originPointer, newVersion, fromSite) =>
+        case FileUpdatedConfirm(originPointer, newVersion, fromSite) =>
           val siteThatUpdatedVersion = fromSite.path.name
           if (fileList.contains(originPointer) && fileList(originPointer).contains(siteThatUpdatedVersion)) {
             val newFileList = updateFileList(fileList, originPointer, siteThatUpdatedVersion, newVersion)
@@ -275,7 +256,6 @@ object Site {
         case CheckInconsistency(fromFileList, parent, partitionSet) =>
           val newFileList = inconcistencyDetection(context.log, fileList, fromFileList)
           parent ! Broadcast(
-            parent,
             ReplaceFileList(newFileList),
             context.self,
             partitionSet
