@@ -1,14 +1,8 @@
 package com.akkamidd.actors
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.akkamidd.actors.Site.{BroadcastDone, Merged, SiteProtocol}
-import akka.util.Timeout
+import com.akkamidd.actors.Site.{Merged, SiteProtocol}
 
-import scala.::
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.DurationInt
-import scala.util.Failure
-import scala.util.Success
 
 // the master actor who spawn the sites
 object MasterSite {
@@ -26,13 +20,13 @@ object MasterSite {
   final case class FileUpdateConfirm(time: String) extends MasterSiteProtocol
   final case class SpawnSite(siteName: String) extends MasterSiteProtocol
 
-  def findSiteGivenName(siteName: String, partitionSet: Set[String], context: ActorContext[MasterSite.MasterSiteProtocol]): ActorRef[SiteProtocol] = {
+  def findSiteGivenName(siteName: String, context: ActorContext[MasterSite.MasterSiteProtocol]): Option[ActorRef[Nothing]] = {
     for (child <- context.children) {
-      if (child.path.name.equals((siteName))) {
-        return child
+      if (child.path.name.equals(siteName)) {
+        return Some(child)
       }
     }
-
+    None
   }
 
   def fromPartitionList(context: ActorContext[MasterSiteProtocol])
@@ -49,7 +43,7 @@ object MasterSite {
 
     case FileUploadMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
       // TODO: fetch the correct actorRef corresponding to the `to` name
-      val site = findSiteGivenName(to, partitionSet, context)
+      val site = findSiteGivenName(to, context)
       site ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSet)
       fromPartitionList(context)
 

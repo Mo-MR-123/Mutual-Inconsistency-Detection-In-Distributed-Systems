@@ -12,6 +12,14 @@ import scala.collection.mutable.ListBuffer
 
 object AkkaMain extends App {
 
+  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+
+  }
+
+  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+
+  }
+
   //find the partition that the part is in
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
@@ -40,7 +48,7 @@ object AkkaMain extends App {
                     ): Unit =
   {
     var setsToMerge: List[Set[ActorRef[SiteProtocol]]] = List()
-    var newPartitionList:List[Set[ActorRef[SiteProtocol]]] = sitesPartitionedList
+    var newPartitionList:List[Set[String]] = sitesPartitionedList
 
     if(partToMerge.isEmpty) {
       return newPartitionList
@@ -144,7 +152,7 @@ object AkkaMain extends App {
   context.log.info("Merge 1, new PartitionList: {}",newPartitionList)
   printCurrentNetworkPartition(newPartitionList, context)
 
-  masterSite ! Merge(newPartitionList)
+  masterSite ! Merge()
 
   Thread.sleep(500)
 
