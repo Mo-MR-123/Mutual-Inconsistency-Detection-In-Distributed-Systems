@@ -142,16 +142,11 @@ object AkkaMain extends App {
   // TODO: Make a function that loops through the amount of actors that need to be spawned from command line and spawn all
   //  actors needed.
   masterSite ! SpawnSite("A")
-  partitionList += "A"
-
   masterSite ! SpawnSite("B")
-  partitionList += "B"
-
   masterSite ! SpawnSite("C")
-  partitionList += "C"
-
   masterSite ! SpawnSite("D")
-  partitionList += "D"
+
+  partitionList = Set("A", "B", "C", "D") +: partitionList
 
   println(partitionList)
 

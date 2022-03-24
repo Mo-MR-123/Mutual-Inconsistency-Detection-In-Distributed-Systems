@@ -3,7 +3,7 @@ package com.akkamidd.actors
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.util.Timeout
-import com.akkamidd.actors.MasterSite.{Broadcast, HandleBroadcastResp, HandleFileUploadResp}
+import com.akkamidd.actors.MasterSite.Broadcast
 import org.slf4j.Logger
 
 import scala.concurrent.duration.DurationInt

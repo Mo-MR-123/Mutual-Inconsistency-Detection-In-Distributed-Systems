@@ -22,10 +22,10 @@ object MasterSite {
 
   def findSiteGivenName(
                          siteName: String,
-                         context: ActorContext[MasterSite.MasterSiteProtocol]
+                         children: List[ActorRef[SiteProtocol]]
                        ): Option[ActorRef[SiteProtocol]] =
   {
-    for (child <- context.children) {
+    for (child <- children) {
       if (child.path.name.equals(siteName)) {
         return Some(child)
       }
@@ -34,16 +34,19 @@ object MasterSite {
   }
 
   def getPartitionActorRefSet(
-                               context: ActorContext[MasterSite.MasterSiteProtocol],
+                               children: List[ActorRef[SiteProtocol]],
                                partitionSetString: Set[String]
                              ): Set[ActorRef[SiteProtocol]] =
   {
     partitionSetString.map(s => {
-      findSiteGivenName(s, context).getOrElse(throw Exception)
+      findSiteGivenName(s, children).get
     })
   }
 
-  def fromPartitionList(context: ActorContext[MasterSiteProtocol])
+  def masterSiteReceive(
+                         context: ActorContext[MasterSiteProtocol],
+                         children: List[ActorRef[SiteProtocol]]
+                       )
   : Behaviors.Receive[MasterSiteProtocol] = Behaviors.receiveMessage {
 
     case Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
@@ -53,20 +56,24 @@ object MasterSite {
           context.log.info("from {} , send message to {}", from, child.toString)
         }
       }
-      fromPartitionList(context)
+      masterSiteReceive(context, children)
 
     case FileUploadMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
       // TODO: fetch the correct actorRef corresponding to the `to` name
-      val site = findSiteGivenName(to, context).getOrElse(throw Exception)
-      val partitionSetRefs = getPartitionActorRefSet(context, partitionSet)
+      val site = findSiteGivenName(to, children).get
+      val partitionSetRefs = getPartitionActorRefSet(children, partitionSet)
 
       site ! Site.FileUpload(time_a1, context.self, "test.txt", partitionSetRefs)
-      fromPartitionList(context)
+
+      masterSiteReceive(context, children)
 
     case FileUpdateMaster(to: String, time_a1: String, partitionSet: Set[String]) =>
-      findSiteGivenName()
-      siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet)
-      fromPartitionList(context)
+      val site = findSiteGivenName(to, children).get
+      val partitionSetRefs = getPartitionActorRefSet(children, partitionSet)
+
+      site ! Site.FileUpdate(("A", time_a1), context.self, partitionSetRefs)
+
+      masterSiteReceive(context, children)
 
     case Merge() =>
       val siteA = findSiteGivenName("A", partitionList)
@@ -75,22 +82,25 @@ object MasterSite {
       val partitionSet3 = findPartitionSet(siteA, partitionList)
       siteA ! Merged(siteC, context.self, partitionSet3)
 
-      fromPartitionList(context)
+      masterSiteReceive(context, children)
 
     case FileUpdateConfirm(time_a1) =>
       val siteA = findSiteGivenName("A", partitionList)
       val partitionSet3 = findPartitionSet(siteA, partitionList)
       siteA ! Site.FileUpdate(("A", time_a1), context.self, partitionSet3)
-      fromPartitionList(context)
+
+      masterSiteReceive(context, children)
 
     // create/spawn sites
     case SpawnSite(siteName: String) =>
-      context.spawn(Site(), siteName)
-      fromPartitionList(context)
+      val spawnedSite = context.spawn(Site(), siteName)
+      val newChildren = spawnedSite +: children
+      context.log.info(s"$newChildren")
+      masterSiteReceive(context, newChildren)
   }
 
   def apply(): Behavior[MasterSiteProtocol] = Behaviors.setup {
-    context => fromPartitionList(context)
+    context => masterSiteReceive(context, List())
   }
 
 }
