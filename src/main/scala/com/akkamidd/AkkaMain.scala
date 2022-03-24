@@ -12,12 +12,21 @@ import scala.collection.mutable.ListBuffer
 
 object AkkaMain extends App {
 
-  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+  def callMerge(masterSystem: ActorSystem[MasterSiteProtocol], timeout: Long, partitionSet: Set[String]): Unit = {
+    val newPartitionList = mergePartition(partitionList, partitionSet)
+    masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+    masterSystem ! Merge()
 
+    Thread.sleep(timeout)
   }
 
-  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+  def callSplit(masterSystem: ActorSystem[MasterSiteProtocol], timeout: Long, partitionSet: Set[String]): Unit = {
+    val newPartitionList = splitPartition(partitionSet, Set(siteA, siteB))
+    masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
+    Thread.sleep(timeout)
   }
 
   //find the partition that the part is in
@@ -137,24 +146,14 @@ object AkkaMain extends App {
   masterSite ! FileUpload(time_a1)
 
   // split into {A,B} {C,D}
-  val newPartitionList = splitPartition(partitionList, Set(siteA, siteB))
-  context.log.info("Split 1, new PartitionList: {}", newPartitionList)
-  printCurrentNetworkPartition(newPartitionList, context)
-
-  Thread.sleep(500)
+  callSplit(masterSite, 500, partitionList)
 
   masterSite ! FileUpdate(time_a1)
 
   Thread.sleep(500)
 
   //  merge into {A, B, C, D}
-  val newPartitionList = mergePartition(partitionList, Set("A", "B", "C", "D"))
-  context.log.info("Merge 1, new PartitionList: {}",newPartitionList)
-  printCurrentNetworkPartition(newPartitionList, context)
-
-  masterSite ! Merge()
-
-  Thread.sleep(500)
+  callMerge(masterSite, 500, partitionList)
 
   masterSite ! FileUpdateConfirm(time_a1)
 
