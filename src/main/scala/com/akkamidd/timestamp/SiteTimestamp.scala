@@ -261,13 +261,10 @@ object SiteTimestamp {
                                       fileListP2: Map[String, String]
                                     ): Map[String, String] = {
 
-    val zippedLists = (fileListP1 ++ fileListP2).toList
-    val tempList = zippedLists.groupBy(_._1).values.map {
-      case List((filename, time1), (_, time2)) => (filename, time1, time2)
-    }
+    val zippedLists = (fileListP1 zip fileListP2).map(pair => (pair._1._1, pair._1._2, pair._2._2))
     var fileList = Map[String, String]()
 
-    for ((filename, time1, time2) <- tempList) {
+    for ((filename, time1, time2) <- zippedLists) {
       // Check whether one of the version vectors is dominant over the other.
       if (time1 > time2) { //TODO: Check if string comparison actually works for dates
         log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 - $time2")

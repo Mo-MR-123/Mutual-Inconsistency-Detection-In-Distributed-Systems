@@ -156,7 +156,7 @@ object UtilFuncsTimestamp {
 
     val time_a1 = System.currentTimeMillis().toString
     masterSiteTimestamp ! MasterSiteTimestamp.FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
-
+    masterSiteTimestamp ! MasterSiteTimestamp.FileUploadMasterSite("A", time_a1, "test2.txt", partitionList)
     // split into {A,B} {C,D}
     partitionList = callSplit(masterSiteTimestamp, partitionList, Set("A", "B"), 500, 500)
 
