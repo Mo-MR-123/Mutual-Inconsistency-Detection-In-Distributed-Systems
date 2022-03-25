@@ -8,31 +8,33 @@ import com.akkamidd.timestamp.SiteTimestamp.{Merged, SiteProtocol}
 object MasterSiteTimestamp {
 
   // MasterSiteProtocol - Defines the messages that dictates the protocol of the master site.
-  sealed trait MasterSiteProtocol
+  sealed trait TimestampProtocol
+
   final case class Broadcast(
                               msg: SiteTimestamp.SiteProtocol,
                               from: ActorRef[SiteTimestamp.SiteProtocol],
                               partitionSet: Set[ActorRef[SiteProtocol]]
-                            ) extends MasterSiteProtocol
+                            ) extends TimestampProtocol
   final case class FileUploadMasterSite(
                                          to: String,
                                          fileName: String,
                                          timestamp: String,
                                          partitionList: List[Set[String]]
-                                       ) extends MasterSiteProtocol
+                                       ) extends TimestampProtocol
   final case class FileUpdateMasterSite(
                                          to: String,
                                          fileName: String,
+                                         newTimestamp: String,
                                          partitionList: List[Set[String]]
-                                       ) extends MasterSiteProtocol
+                                       ) extends TimestampProtocol
   final case class Merge(
                           fromSiteMerge: String,
                           toSiteMerge: String,
                           partitionList: List[Set[String]]
-                        ) extends MasterSiteProtocol
-  final case class SpawnSite(siteName: String) extends MasterSiteProtocol
+                        ) extends TimestampProtocol
+  final case class SpawnSite(siteName: String) extends TimestampProtocol
 
-  def apply(): Behavior[MasterSiteProtocol] = Behaviors.setup {
+  def apply(): Behavior[TimestampProtocol] = Behaviors.setup {
     context => masterSiteReceive(context, List())
   }
 
@@ -75,10 +77,12 @@ object MasterSiteTimestamp {
   }
 
   def masterSiteReceive(
-                         context: ActorContext[MasterSiteProtocol],
+                         context: ActorContext[TimestampProtocol],
                          children: List[ActorRef[SiteProtocol]]
                        )
-  : Behaviors.Receive[MasterSiteProtocol] = Behaviors.receiveMessage {
+  : Behaviors.Receive[TimestampProtocol] = Behaviors.receiveMessage {
+
+
 
     case Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
       partitionSet.foreach { child =>
@@ -88,6 +92,8 @@ object MasterSiteTimestamp {
         }
       }
       masterSiteReceive(context, children)
+
+
 
     case FileUploadMasterSite(siteThatUploads: String, timestamp: String, fileName: String, partitionList: List[Set[String]]) =>
       val site = findSiteGivenName(siteThatUploads, children).get
@@ -99,15 +105,19 @@ object MasterSiteTimestamp {
 
       masterSiteReceive(context, children)
 
-    case FileUpdateMasterSite(siteThatUpdates: String, fileName: String, partitionList: List[Set[String]]) =>
+
+
+    case FileUpdateMasterSite(siteThatUpdates: String, fileName: String, newTimestamp: String, partitionList: List[Set[String]]) =>
       val site = findSiteGivenName(siteThatUpdates, children).get
 
       val getPartitionSet = findPartitionSet(siteThatUpdates, partitionList)
       val partitionSetRefs = getPartitionActorRefSet(children, getPartitionSet)
 
-      site ! SiteTimestamp.FileUpdate(fileName,  context.self, partitionSetRefs)
+      site ! SiteTimestamp.FileUpdate(fileName, newTimestamp, context.self, partitionSetRefs)
 
       masterSiteReceive(context, children)
+
+
 
     case Merge(fromSiteMerge, toSiteMerge, partitionList) =>
       val siteFrom = findSiteGivenName(fromSiteMerge, children).get
@@ -119,6 +129,8 @@ object MasterSiteTimestamp {
       siteFrom ! Merged(siteTo, context.self, partitionSetRefs)
 
       masterSiteReceive(context, children)
+
+
 
     // create/spawn sites
     case SpawnSite(siteName: String) =>

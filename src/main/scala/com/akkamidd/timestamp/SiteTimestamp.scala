@@ -15,20 +15,20 @@ object SiteTimestamp {
   final case class FileUpload(
                                fileName: String,
                                timestamp: String,
-                               parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
+                               parent: ActorRef[MasterSiteTimestamp.TimestampProtocol],
                                partitionSet: Set[ActorRef[SiteProtocol]]
                              ) extends SiteProtocol
   //  final case class FileDeletion(replyTo: ActorRef[SiteProtocol]) extends SiteProtocol
   final case class FileUpdate(
                                fileName: String,
                                newTimestamp: String,
-                               parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
+                               parent: ActorRef[MasterSiteTimestamp.TimestampProtocol],
                                partitionSet: Set[ActorRef[SiteProtocol]]
                              ) extends SiteProtocol
   final case class FileDuplicate(
                                   fileName: String,
                                   timestamp: String,
-                                  parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
+                                  parent: ActorRef[MasterSiteTimestamp.TimestampProtocol],
                                   partitionSet: Set[ActorRef[SiteProtocol]]
                                 ) extends SiteProtocol
   final case class FileUpdatedConfirm(
@@ -38,12 +38,12 @@ object SiteTimestamp {
                                      ) extends SiteProtocol
   final case class Merged(
                            to: ActorRef[SiteProtocol],
-                           parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
+                           parent: ActorRef[MasterSiteTimestamp.TimestampProtocol],
                            partitionSet: Set[ActorRef[SiteProtocol]]
                          ) extends SiteProtocol
   final case class CheckInconsistency(
                                        fileList: Map[String, String],
-                                       parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
+                                       parent: ActorRef[MasterSiteTimestamp.TimestampProtocol],
                                        partitionSet: Set[ActorRef[SiteProtocol]]
                                      ) extends SiteProtocol
   final case class ReplaceFileList(
@@ -68,7 +68,7 @@ object SiteTimestamp {
         /**
          * Upload file onto the current site. A new entry is added to the filelist and sends to other sites to duplicate.
          */
-        case FileUpload(fileName: String, timestamp: String, parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
+        case FileUpload(fileName: String, timestamp: String, parent: ActorRef[MasterSiteTimestamp.TimestampProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
           // Check if the file already exists in the filelist.
           if (fileList.contains(fileName)) {
             context.log.error(s"[FileUpload] File name = $fileName already exists in fileList = $fileList")
@@ -92,7 +92,7 @@ object SiteTimestamp {
         /**
          * Updates the timestap related to a file and calls broadcast such that other sites know about the update.
          */
-        case FileUpdate(fileName: String, newTimestamp: String, parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol], partitionList: Set[ActorRef[SiteProtocol]]) =>
+        case FileUpdate(fileName: String, newTimestamp: String, parent: ActorRef[MasterSiteTimestamp.TimestampProtocol], partitionList: Set[ActorRef[SiteProtocol]]) =>
           // Check if the hashFile exists
           if (fileList.contains(fileName)) {
 
