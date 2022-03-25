@@ -1,28 +1,28 @@
 package com.akkamidd.timestamp
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.akkamidd.timestamp.Site.{Merged, SiteProtocol}
+import com.akkamidd.timestamp.SiteTimestamp.{Merged, SiteProtocol}
 
 
 // the master actor who spawn the sites
-object MasterSite {
+object MasterSiteTimestamp {
 
   // MasterSiteProtocol - Defines the messages that dictates the protocol of the master site.
   sealed trait MasterSiteProtocol
   final case class Broadcast(
-                              msg: Site.SiteProtocol,
-                              from: ActorRef[Site.SiteProtocol],
+                              msg: SiteTimestamp.SiteProtocol,
+                              from: ActorRef[SiteTimestamp.SiteProtocol],
                               partitionSet: Set[ActorRef[SiteProtocol]]
                             ) extends MasterSiteProtocol
   final case class FileUploadMasterSite(
                                          to: String,
-                                         timestamp: String,
                                          fileName: String,
+                                         timestamp: String,
                                          partitionList: List[Set[String]]
                                        ) extends MasterSiteProtocol
   final case class FileUpdateMasterSite(
                                          to: String,
-                                         originPointer: (String, String),
+                                         fileName: String,
                                          partitionList: List[Set[String]]
                                        ) extends MasterSiteProtocol
   final case class Merge(
@@ -95,17 +95,17 @@ object MasterSite {
       val getPartitionSet = findPartitionSet(siteThatUploads, partitionList)
       val partitionSetRefs = getPartitionActorRefSet(children, getPartitionSet)
 
-      site ! Site.FileUpload(timestamp, context.self, fileName, partitionSetRefs)
+      site ! SiteTimestamp.FileUpload(fileName, timestamp, context.self, partitionSetRefs)
 
       masterSiteReceive(context, children)
 
-    case FileUpdateMasterSite(siteThatUpdates: String, originPointer: (String, String), partitionList: List[Set[String]]) =>
+    case FileUpdateMasterSite(siteThatUpdates: String, fileName: String, partitionList: List[Set[String]]) =>
       val site = findSiteGivenName(siteThatUpdates, children).get
 
       val getPartitionSet = findPartitionSet(siteThatUpdates, partitionList)
       val partitionSetRefs = getPartitionActorRefSet(children, getPartitionSet)
 
-      site ! Site.FileUpdate(originPointer, context.self, partitionSetRefs)
+      site ! SiteTimestamp.FileUpdate(fileName,  context.self, partitionSetRefs)
 
       masterSiteReceive(context, children)
 
@@ -122,7 +122,7 @@ object MasterSite {
 
     // create/spawn sites
     case SpawnSite(siteName: String) =>
-      val spawnedSite = context.spawn(Site(), siteName)
+      val spawnedSite = context.spawn(SiteTimestamp(), siteName)
       val newChildren = spawnedSite +: children
       context.log.info(s"$newChildren")
       masterSiteReceive(context, newChildren)

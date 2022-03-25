@@ -3,32 +3,32 @@ package com.akkamidd.timestamp
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.util.Timeout
-import com.akkamidd.timestamp.MasterSite.Broadcast
+import com.akkamidd.timestamp.MasterSiteTimestamp.Broadcast
 import org.slf4j.Logger
 
 import scala.concurrent.duration.DurationInt
 
-object Site {
+object SiteTimestamp {
   // SiteProtocol: The messages that define the protocol between Sites
   sealed trait SiteProtocol
 
   final case class FileUpload(
                                fileName: String,
                                timestamp: String,
-                               parent: ActorRef[MasterSite.MasterSiteProtocol],
+                               parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
                                partitionSet: Set[ActorRef[SiteProtocol]]
                              ) extends SiteProtocol
   //  final case class FileDeletion(replyTo: ActorRef[SiteProtocol]) extends SiteProtocol
   final case class FileUpdate(
                                fileName: String,
                                newTimestamp: String,
-                               parent: ActorRef[MasterSite.MasterSiteProtocol],
+                               parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
                                partitionSet: Set[ActorRef[SiteProtocol]]
                              ) extends SiteProtocol
   final case class FileDuplicate(
                                   fileName: String,
                                   timestamp: String,
-                                  parent: ActorRef[MasterSite.MasterSiteProtocol],
+                                  parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
                                   partitionSet: Set[ActorRef[SiteProtocol]]
                                 ) extends SiteProtocol
   final case class FileUpdatedConfirm(
@@ -38,12 +38,12 @@ object Site {
                                      ) extends SiteProtocol
   final case class Merged(
                            to: ActorRef[SiteProtocol],
-                           parent: ActorRef[MasterSite.MasterSiteProtocol],
+                           parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
                            partitionSet: Set[ActorRef[SiteProtocol]]
                          ) extends SiteProtocol
   final case class CheckInconsistency(
                                        fileList: Map[String, String],
-                                       parent: ActorRef[MasterSite.MasterSiteProtocol],
+                                       parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol],
                                        partitionSet: Set[ActorRef[SiteProtocol]]
                                      ) extends SiteProtocol
   final case class ReplaceFileList(
@@ -52,7 +52,7 @@ object Site {
   final case class BroadcastDone(msg: String) extends SiteProtocol
 
 
-  
+
   def apply(): Behavior[SiteProtocol] =
     // A hashmap mapping filename to the timestamp
     fromMap(Map[String, String]())
@@ -68,7 +68,7 @@ object Site {
         /**
          * Upload file onto the current site. A new entry is added to the filelist and sends to other sites to duplicate.
          */
-        case FileUpload(fileName: String, timestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
+        case FileUpload(fileName: String, timestamp: String, parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
           // Check if the file already exists in the filelist.
           if (fileList.contains(fileName)) {
             context.log.error(s"[FileUpload] File name = $fileName already exists in fileList = $fileList")
@@ -92,7 +92,7 @@ object Site {
         /**
          * Updates the timestap related to a file and calls broadcast such that other sites know about the update.
          */
-        case FileUpdate(fileName: String, newTimestamp: String, parent: ActorRef[MasterSite.MasterSiteProtocol], partitionList: Set[ActorRef[SiteProtocol]]) =>
+        case FileUpdate(fileName: String, newTimestamp: String, parent: ActorRef[MasterSiteTimestamp.MasterSiteProtocol], partitionList: Set[ActorRef[SiteProtocol]]) =>
           // Check if the hashFile exists
           if (fileList.contains(fileName)) {
 
