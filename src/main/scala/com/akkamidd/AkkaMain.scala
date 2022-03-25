@@ -5,9 +5,15 @@ import com.akkamidd.actors.MasterSite
 import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol, Merge, SpawnSite}
 import org.slf4j.Logger
 
-
-object AkkaMain extends App {
-
+object UtilFuncs {
+  /**
+   * Send messages to MasterSite to instruct it to create a new Site Actor in the Actor System.
+   * @param masterSystem
+   * @param siteNameList
+   * @param partitionList
+   * @param timeout
+   * @return
+   */
   def spawnSites(
                   masterSystem: ActorSystem[MasterSiteProtocol],
                   siteNameList: List[String],
@@ -25,19 +31,24 @@ object AkkaMain extends App {
   }
 
   def callMerge(
+                 siteNameFrom: String,
+                 siteNameTo: String,
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
                  partToMerge: Set[String],
-                 timeout: Long
+                 timeoutBeforeExec: Long,
+                 timeoutAfterExec: Long
                ): List[Set[String]] =
   {
+    Thread.sleep(timeoutBeforeExec)
+
     val newPartitionList = mergePartition(sitesPartitionedList, partToMerge)
     masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
-    masterSystem ! Merge("A", "C", newPartitionList)
+    masterSystem ! Merge(siteNameFrom, siteNameTo, newPartitionList)
 
-    Thread.sleep(timeout)
+    Thread.sleep(timeoutAfterExec)
 
     newPartitionList
   }
@@ -46,14 +57,17 @@ object AkkaMain extends App {
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
                  partToSplit: Set[String],
-                 timeout: Long
+                 timeoutBeforeExec: Long,
+                 timeoutAfterExec: Long
                ): List[Set[String]] =
   {
+    Thread.sleep(timeoutBeforeExec)
+
     val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
     masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
-    Thread.sleep(timeout)
+    Thread.sleep(timeoutAfterExec)
 
     newPartitionList
   }
@@ -132,39 +146,27 @@ object AkkaMain extends App {
     result.deleteCharAt(result.length()  - 1)
     logger.info(result.toString())
   }
+}
 
+object AkkaMain extends App {
 
   val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
 
-  var partitionList: List[Set[String]] = spawnSites(masterSite, List("A", "B", "C", "D"), List(), 1000)
+  var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), List(), 1000)
 
   // upload files
   val time_a1 = System.currentTimeMillis().toString
   masterSite ! FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
 
   // split into {A,B} {C,D}
-  partitionList = callSplit(masterSite, partitionList, Set("A", "B"), 500)
+  partitionList = UtilFuncs.callSplit(masterSite, partitionList, Set("A", "B"), 500, 500)
 
-  masterSite ! FileUpdateMasterSite("A", ("A", time_a1) , partitionList)
   masterSite ! FileUpdateMasterSite("A", ("A", time_a1), partitionList)
+  masterSite ! FileUpdateMasterSite("B", ("A", time_a1), partitionList)
 
-//  Thread.sleep(500)
-
-//  masterSite ! FileUpdateMasterSite("C", ("A", time_a1), partitionList)
+  masterSite ! FileUpdateMasterSite("C", ("A", time_a1), partitionList)
 
   //  merge into {A, B, C, D}
-  partitionList = callMerge(masterSite, partitionList, Set("A", "B", "C", "D"), 500)
+  partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), 500, 500)
 
 }
-
-// merge {A} , {B} in {A} {B, C} {D} -> {A, B, C} {D}
-// siteA ! Merged(siteB, )
-//            siteB ! CheckInconsistency(fileListA)
-//                  1- Call ID for inconsistency checking (fileListA, fileListB) -> new fileList
-//                  2- Broadcast(ReplaceFileList(newFileList), context.self,
-
-// sbt AkkaMain.scala 24 upload-20 update-0 update-1 split-10 split-15
-// split-10 = List(Set(0, 1,.... 10), Set(11, 12, ... 24))
-// split-15 = List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16, 17, ... 24))
-// split-16 = List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16), Set(17, ... 24))
-// split-24 = List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16), Set(17, ... 23), Set(24))
