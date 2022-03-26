@@ -2,13 +2,9 @@ package com.akkamidd.actors
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.util.Timeout
 import com.akkamidd.actors.MasterSite.Broadcast
 import org.slf4j.Logger
 
-import scala.concurrent.duration.DurationInt
-import scala.util.Failure
-import scala.util.Success
 
 object Site {
   // SiteProtocol: The messages that define the protocol between Sites
