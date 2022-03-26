@@ -72,25 +72,6 @@ object UtilFuncs {
     newPartitionList
   }
 
-  def callSplit(
-                 masterSystem: ActorSystem[MasterSiteProtocol],
-                 sitesPartitionedList: List[Set[String]],
-                 siteAtWhichSplit: String,
-                 timeoutBeforeExec: Long,
-                 timeoutAfterExec: Long
-               ): List[Set[String]] =
-  {
-    Thread.sleep(timeoutBeforeExec)
-
-    val newPartitionList = splitPartition(sitesPartitionedList, siteAtWhichSplit)
-    masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
-
-    Thread.sleep(timeoutAfterExec)
-
-    newPartitionList
-  }
-
   //find the partition that the part is in
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
@@ -112,38 +93,6 @@ object UtilFuncs {
     }
     throw new Exception("Not valid sub-partition in current DAG")
   }
-
-  //find the partition that the part is in
-  def splitPartition(
-                      sitesPartitionedList: List[Set[String]],
-                      siteAtWhichSplit: String
-                    ): List[Set[String]] =
-  {
-    var newPartitionList:List[Set[String]] = sitesPartitionedList
-
-    for (set <- newPartitionList){
-      if (set.contains(siteAtWhichSplit)) {
-        // the sites whose number is bigger than siteAtWhichSplit should be splitted away
-        val partToSplit = set.filter(_>siteAtWhichSplit)
-        // if the site is the biggest in the current partition, then nothing to split
-        if (partToSplit.isEmpty){
-          return sitesPartitionedList
-        }
-        // remove The old partition
-        newPartitionList = newPartitionList.filter(!_.equals(set))
-        // create new partition for the remaining part
-        val setRemain = set -- partToSplit
-        newPartitionList = newPartitionList :+ setRemain
-        // create new partition for the partToSplit and append the new one to partition list
-        newPartitionList = newPartitionList :+ partToSplit
-        return newPartitionList
-      }
-    }
-    throw new Exception("Not valid sub-partition in current DAG")
-  }
-
-
-
 
   def mergePartition(
                       sitesPartitionedList: List[Set[String]],
@@ -200,8 +149,6 @@ object UtilFuncs {
 }
 
 object AkkaMain extends App {
-
-  println(args(0))
 
   val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
 
