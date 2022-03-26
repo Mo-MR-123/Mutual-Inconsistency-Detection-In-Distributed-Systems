@@ -13,7 +13,7 @@ object AkkaMain extends App {
   val siteActorNames = List.range(0, numSiteActors).map(_.toString)
 
   val masterSystem = ActorSystem(MasterSite(false), "MasterSite")
-  val partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
+  var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
   println(s"$numSiteActors Site actors spawned successfully! Names of all actors: $siteActorNames")
 
@@ -27,7 +27,7 @@ object AkkaMain extends App {
 
         UtilFuncs.callUploadFile(siteToUpload, currTimestamp, masterSystem, fileName, partitionList)
 
-      case command if command.contains("update") =>
+      case command if command contains "update" =>
         val updateCommand = command.split("-").tail
         val siteToUpload = updateCommand(0)
         val originPointerParts = updateCommand(1).tail.dropRight(1).split(",")
@@ -35,21 +35,31 @@ object AkkaMain extends App {
 
         UtilFuncs.callUpdateFile(siteToUpload, originPointer, masterSystem, partitionList)
 
-      case command if command.contains("split") =>
+      case command if command contains "split" =>
         val splitCommand = command.split("-").tail
 
         if (splitCommand.contains("{") && splitCommand.contains("}")) {
           val siteNamesToSplit = splitCommand(1).tail.dropRight(1).split(",")
-          UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, 1000, 1000)
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, 1000, 1000)
         } else {
           val siteNameToSplit = splitCommand(1)
-          
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
         }
+
+        println(s"Split successful! New partition list: $partitionList")
+
+      case command if command contains "merge" =>
+        val mergeCommand = command.split("-").tail
+        val siteNamesToMerge = mergeCommand(1).tail.dropRight(1).split(",")
+        partitionList = UtilFuncs.callMerge()
 
 
       case "quit" =>
         UtilFuncs.terminateSystem(masterSystem, 1000)
         System.exit(0)
+
+      case _ =>
+        println("Not a valid command!")
     }
   }
 
