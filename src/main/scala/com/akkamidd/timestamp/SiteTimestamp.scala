@@ -2,11 +2,8 @@ package com.akkamidd.timestamp
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.util.Timeout
 import com.akkamidd.timestamp.MasterSiteTimestamp.Broadcast
 import org.slf4j.Logger
-
-import scala.concurrent.duration.DurationInt
 
 object SiteTimestamp {
   // SiteProtocol: The messages that define the protocol between Sites
@@ -53,23 +50,19 @@ object SiteTimestamp {
 
 
 
-  def apply(): Behavior[SiteProtocol] =
+  def apply(debugMode: Boolean): Behavior[SiteProtocol] =
     // A hashmap mapping filename to the timestamp
-    fromMap(Map[String, String]())
+    fromMap(Map[String, String](), debugMode)
 
-  def fromMap(fileList: Map[String, String]): Behavior[SiteProtocol] =  Behaviors.setup {
-    // asking someone requires a timeout, if the timeout hits without response
-    // the ask is failed with a TimeoutException
-    implicit val timeout: Timeout = 2.seconds
-
+  def fromMap(fileList: Map[String, String], debugMode: Boolean): Behavior[SiteProtocol] =  Behaviors.setup {
     context =>
       Behaviors.receiveMessage {
 
         /**
-         * Upload file onto the current site. A new entry is added to the filelist and sends to other sites to duplicate.
+         * Upload file onto the current site. A new entry is added to the file list and sends to other sites to duplicate.
          */
         case FileUpload(fileName: String, timestamp: String, parent: ActorRef[MasterSiteTimestamp.TimestampProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
-          // Check if the file already exists in the filelist.
+          // Check if the file already exists in the file list.
           if (fileList.contains(fileName)) {
             context.log.error(s"[FileUpload] File name = $fileName already exists in fileList = $fileList")
             Behaviors.same
@@ -86,11 +79,11 @@ object SiteTimestamp {
 
           context.log.info(s"[FileUpload] File uploaded! File = $fileName , fileList = $newFileList")
 
-          fromMap(newFileList)
+          fromMap(newFileList, debugMode)
 
 
         /**
-         * Updates the timestap related to a file and calls broadcast such that other sites know about the update.
+         * Updates the timestamp related to a file and calls broadcast such that other sites know about the update.
          */
         case FileUpdate(fileName: String, newTimestamp: String, parent: ActorRef[MasterSiteTimestamp.TimestampProtocol], partitionList: Set[ActorRef[SiteProtocol]]) =>
           // Check if the hashFile exists
@@ -106,22 +99,25 @@ object SiteTimestamp {
               partitionList
             )
 
-            fromMap(newFileList)
+            fromMap(newFileList, debugMode)
           } else {
             context.log.error(s"[FileUpdate] File = $fileName does not exist in fileList = $fileList")
-            fromMap(fileList)
+            fromMap(fileList, debugMode)
           }
 
 
         /**
-         * Duplicates file onto current site and broadcast updated filelist to other sites.
+         * Duplicates file onto current site and broadcast updated file list to other sites.
          */
         case FileDuplicate(fileName: String, timestamp: String, parent, partitionSet: Set[ActorRef[SiteProtocol]]) =>
           val siteName = context.self.path.name
           // Check if fileList actually keeps track of the file
           if (!fileList.contains(fileName)) {
             val newFileList = fileList + (fileName -> timestamp)
-            context.log.info(s"[FileDuplicate] site $siteName has duplicated $fileName at timestamp $timestamp. fileList $newFileList.")
+
+            if (debugMode) {
+              context.log.info(s"[FileDuplicate] site $siteName has duplicated $fileName at timestamp $timestamp. fileList $newFileList.")
+            }
 
             parent ! Broadcast(
               FileDuplicate(fileName = fileName, timestamp = timestamp, parent = parent, partitionSet),
@@ -129,79 +125,87 @@ object SiteTimestamp {
               partitionSet
             )
 
-            fromMap(newFileList)
+            fromMap(newFileList, debugMode)
+
           } else {
             val newFileList = mergeFileList(fileList, fileName, timestamp)
-            context.log.info(s"[FileDuplicate] site $siteName has file with name $fileName. fileList $newFileList.")
-            fromMap(newFileList)
-          }
 
+            if (debugMode) {
+              context.log.info(s"[FileDuplicate] site $siteName has file with name $fileName. fileList $newFileList.")
+            }
+
+            fromMap(newFileList, debugMode)
+          }
 
 
         /**
          * Confirms a file updated has succeeded.
          */
-        case FileUpdatedConfirm(fileName: String, updatedTimestamp: String, fromSite) =>
+        case FileUpdatedConfirm(fileName: String, updatedTimestamp: String, fromSite: ActorRef[SiteProtocol]) =>
           if (fileList.contains(fileName)) {
             val newFileList = updateFileList(fileList, fileName, updatedTimestamp)
 
-            context.log.info(s"[FileUpdatedConfirm] File = $fileName, version = $updatedTimestamp, newFileList = $newFileList. Site ${context.self.path.name}")
-            fromMap(newFileList)
+            if (debugMode) {
+              context.log.info(s"[FileUpdatedConfirm] File = $fileName, version = $updatedTimestamp, newFileList = $newFileList. Site ${context.self.path.name}")
+            }
+
+            fromMap(newFileList, debugMode)
           } else {
-            context.log.error(s"File = $fileName not in fileList = $fileList. newVersion $updatedTimestamp. Site ${context.self.path.name}")
+            if (debugMode) {
+              context.log.error(s"File = $fileName not in fileList = $fileList. newVersion $updatedTimestamp. Site ${context.self.path.name}")
+            }
+
             Behaviors.unhandled
           }
 
 
-
         /**
-         * Merges filelist of current site and an other site.
+         * Merges file list of current site and an other site.
          */
         case Merged(to, parent, partitionSet) =>
-          context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
-          to ! CheckInconsistency(fileList, parent, partitionSet)
-          fromMap(fileList)
+          if (debugMode) {
+            context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
+          }
 
+          to ! CheckInconsistency(fileList, parent, partitionSet)
+          fromMap(fileList, debugMode)
 
 
         /**
          * Performs inconsistency detection for the timestamp algorithm.
          */
         case CheckInconsistency(fromFileList, parent, partitionSet) =>
-          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList)
-          parent ! Broadcast(
-            ReplaceFileList(newFileList),
-            context.self,
-            partitionSet
-          )
-          fromMap(newFileList)
-
+          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, debugMode)
+          if (newFileList.nonEmpty) {
+            parent ! Broadcast(
+              ReplaceFileList(newFileList),
+              context.self,
+              partitionSet
+            )
+            fromMap(newFileList, debugMode)
+          } else {
+            fromMap(fileList, debugMode)
+          }
 
 
         /**
-         * Replace current filelist with another.
+         * Replace current file list with another.
          */
         case ReplaceFileList(newFileList) =>
-          context.log.info(s"[ReplaceFileList.${context.self.path.name}] Replaced FileList with newFileList $newFileList")
-          fromMap(newFileList)
+          if (debugMode) {
+            context.log.info(s"[ReplaceFileList.${context.self.path.name}] Replaced FileList with newFileList $newFileList")
+          }
 
-
-        /**
-         * Broadcast is done.
-         */
-        case BroadcastDone(msg: String) =>
-          context.log.info(s"$msg")
-          Behaviors.same
-
+          fromMap(newFileList, debugMode)
       }
   }
 
   /**
-   * Helper method for merging filelists.
-   * @param fileList Filelist to merge.
+   * Helper method for merging file lists.
+   * @param fileList File list to merge.
    * @param fileName The name of the file to check for.
    * @param timestamp Timestamp of the file.
-   * @return merged filelist.
+   * @return merged file list.
    */
   private def mergeFileList(
                              fileList: Map[String, String],
@@ -225,11 +229,11 @@ object SiteTimestamp {
   }
 
   /**
-   * Helper method for updating a filelist
-   * @param fileList Filelist used by the current Site.
+   * Helper method for updating a file list
+   * @param fileList File list used by the current Site.
    * @param fileName File to change.
    * @param newVal New timestamp to change to.
-   * @return updated filelist.
+   * @return updated file list.
    */
   private def updateFileList(
                               fileList: Map[String, String],
@@ -258,10 +262,21 @@ object SiteTimestamp {
   private def inconsistencyDetection(
                                       log: Logger,
                                       fileListP1: Map[String, String],
-                                      fileListP2: Map[String, String]
+                                      fileListP2: Map[String, String],
+                                      debugMode: Boolean
                                     ): Map[String, String] = {
 
-    val zippedLists = (fileListP1 zip fileListP2).map(pair => (pair._1._1, pair._1._2, pair._2._2))
+    // Zip on the same fileName
+    val zippedLists = for {
+      (file1, version1) <- fileListP1
+      (file2, version2) <- fileListP2
+      if file1 == file2
+    } yield (file1, version1, version2)
+
+    // To keep the unique files in both the first and second partition.
+    val uniqueFilesP1 = fileListP1.filter(f => !fileListP2.contains(f._1))
+    val uniqueFilesP2 = fileListP2.filter(f => !fileListP1.contains(f._1))
+
     var fileList = Map[String, String]()
 
     for ((filename, time1, time2) <- zippedLists) {
@@ -278,7 +293,11 @@ object SiteTimestamp {
       }
     }
 
-    log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
+    fileList = fileList ++ uniqueFilesP1 ++ uniqueFilesP2
+
+    if (debugMode) {
+      log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
+    }
     fileList
   }
 

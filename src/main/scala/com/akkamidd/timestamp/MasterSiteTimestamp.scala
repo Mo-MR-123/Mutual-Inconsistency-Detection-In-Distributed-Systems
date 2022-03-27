@@ -34,8 +34,8 @@ object MasterSiteTimestamp {
                         ) extends TimestampProtocol
   final case class SpawnSite(siteName: String) extends TimestampProtocol
 
-  def apply(): Behavior[TimestampProtocol] = Behaviors.setup {
-    context => masterSiteReceive(context, List())
+  def apply(debugMode: Boolean): Behavior[TimestampProtocol] = Behaviors.setup {
+    context => masterSiteReceive(context, List(), debugMode)
   }
 
   def findSiteGivenName(
@@ -78,7 +78,8 @@ object MasterSiteTimestamp {
 
   def masterSiteReceive(
                          context: ActorContext[TimestampProtocol],
-                         children: List[ActorRef[SiteProtocol]]
+                         children: List[ActorRef[SiteProtocol]],
+                         debugMode: Boolean
                        )
   : Behaviors.Receive[TimestampProtocol] = Behaviors.receiveMessage {
 
@@ -88,10 +89,12 @@ object MasterSiteTimestamp {
       partitionSet.foreach { child =>
         if(!child.equals(from)) {
           child ! msg
-          context.log.info("from {} , send message to {}", from, child.toString)
+          if (debugMode) {
+            context.log.info("from {} , send message to {}", from, child.toString)
+          }
         }
       }
-      masterSiteReceive(context, children)
+      masterSiteReceive(context, children, debugMode)
 
 
 
@@ -103,7 +106,7 @@ object MasterSiteTimestamp {
 
       site ! SiteTimestamp.FileUpload(fileName, timestamp, context.self, partitionSetRefs)
 
-      masterSiteReceive(context, children)
+      masterSiteReceive(context, children, debugMode)
 
 
 
@@ -115,9 +118,7 @@ object MasterSiteTimestamp {
 
       site ! SiteTimestamp.FileUpdate(fileName, newTimestamp, context.self, partitionSetRefs)
 
-      masterSiteReceive(context, children)
-
-
+      masterSiteReceive(context, children, debugMode)
 
     case Merge(fromSiteMerge, toSiteMerge, partitionList) =>
       val siteFrom = findSiteGivenName(fromSiteMerge, children).get
@@ -128,16 +129,18 @@ object MasterSiteTimestamp {
 
       siteFrom ! Merged(siteTo, context.self, partitionSetRefs)
 
-      masterSiteReceive(context, children)
-
-
+      masterSiteReceive(context, children, debugMode)
 
     // create/spawn sites
     case SpawnSite(siteName: String) =>
-      val spawnedSite = context.spawn(SiteTimestamp(), siteName)
+      val spawnedSite = context.spawn(SiteTimestamp(debugMode), siteName)
       val newChildren = spawnedSite +: children
-      context.log.info(s"$newChildren")
-      masterSiteReceive(context, newChildren)
+
+      if (debugMode) {
+        context.log.info(s"$newChildren")
+      }
+
+      masterSiteReceive(context, newChildren, debugMode)
   }
 
 }
