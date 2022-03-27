@@ -7,28 +7,37 @@ import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSit
 import org.scalatest.wordspec.AnyWordSpecLike
 
 class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
-  "A Greeter" must {
-    "reply to greeted" in {
+  "Experiment 1" must {
+    "Detect Inconsistency" in {
+      val spawningActorsTimeout = 1000
+      val timeoutSplit = 500
+      val timeoutMerge = 500
 
-      val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
+      val experimentStartMillis = System.currentTimeMillis()
 
-      var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), List(), 1000)
+      val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(false), "MasterSite")
+
+      var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), spawningActorsTimeout)
 
       // upload files
       val time_a1 = System.currentTimeMillis().toString
-      masterSite ! FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
+
+      UtilFuncs.callUploadFile("A", time_a1, masterSite, "test.txt", partitionList)
 
       // partitionList = UtilFuncs.callSplit(masterSite, partitionList, Set("A", "B"), 500, 500)
-      partitionList = UtilFuncs.callSplit(masterSite, partitionList, "B", 500, 500)
+      partitionList = UtilFuncs.callSplit(masterSite, partitionList, "B", timeoutSplit, timeoutSplit)
 
-      masterSite ! FileUpdateMasterSite("A", ("A", time_a1), partitionList)
-      masterSite ! FileUpdateMasterSite("B", ("A", time_a1), partitionList)
-
-      masterSite ! FileUpdateMasterSite("C", ("A", time_a1), partitionList)
+      UtilFuncs.callUpdateFile("A", ("A", time_a1), masterSite, partitionList)
+      UtilFuncs.callUpdateFile("B", ("A", time_a1), masterSite, partitionList)
+      UtilFuncs.callUpdateFile("C", ("A", time_a1), masterSite, partitionList)
 
       //  merge into {A, B, C, D}
-      partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), 500, 500)
+      partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), timeoutMerge, timeoutMerge)
 
+//      val experimentEndMillis = System.currentTimeMillis() - timeoutMerge*2 - timeoutSplit*2 - spawningActorsTimeout
+      val experimentEndMillis = System.currentTimeMillis()
+
+      println(s"[Experiment 1] Execution time in millis: ${experimentEndMillis - experimentStartMillis}")
     }
   }
 }
