@@ -16,6 +16,7 @@ object AkkaMain extends App {
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
   println(s"$numSiteActors Site actors spawned successfully! Names of all actors: $siteActorNames")
+  println(s"The partition list is $partitionList")
 
   while (true) {
     StdIn.readLine match {
@@ -39,20 +40,36 @@ object AkkaMain extends App {
         val splitCommand = command.split("-").tail
 
         if (splitCommand.contains("{") && splitCommand.contains("}")) {
-          val siteNamesToSplit = splitCommand(1).tail.dropRight(1).split(",")
-          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, 1000, 1000)
+          val siteNamesToSplit = splitCommand(0).tail.dropRight(1).split(",")
+          println(siteNamesToSplit)
+          if (splitCommand.length == 2) { // e.g. split-10-1000
+            val timeoutValue = splitCommand(1).toLong
+            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, timeoutValue, timeoutValue)
+          } else {
+            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, 1000, 1000)
+          }
         } else {
-          val siteNameToSplit = splitCommand(1)
-          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
+          val siteNameToSplit = splitCommand(0)
+          if (splitCommand.length == 3) {
+            val timeoutValue = splitCommand(1).toLong
+            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, timeoutValue, timeoutValue)
+          } else {
+            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
+          }
         }
-
-        UtilFuncs.printCurrentNetworkPartition(partitionList, masterSystem.log)
 
       case command if command contains "merge" =>
         val mergeCommand = command.split("-").tail
-        val siteNamesToMerge = mergeCommand(1).tail.dropRight(1).split(",")
-//        partitionList = UtilFuncs.callMerge() --> TODO: make it so that we don't have to pass the to and from sites since. Use Set().head to get "random" site from each partition instead.
-        UtilFuncs.printCurrentNetworkPartition(partitionList, masterSystem.log)
+        val siteFrom = mergeCommand(0)
+        val siteTo = mergeCommand(1)
+        val siteNamesToMerge = mergeCommand(2).tail.dropRight(1).split(",").toSet // e.g. marge-0-11-{10,11,12}-1000
+
+        if (mergeCommand.length == 4) {
+          val timeoutValue = mergeCommand(3).toLong
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, timeoutValue, timeoutValue)
+        } else {
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, 1000, 1000)
+        }
 
       case "quit" =>
         UtilFuncs.terminateSystem(masterSystem, 1000)
@@ -156,10 +173,10 @@ object UtilFuncs {
     Thread.sleep(timeoutBeforeExec)
 
     val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
-//    masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     Thread.sleep(timeoutAfterExec)
+
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     newPartitionList
   }
@@ -175,15 +192,13 @@ object UtilFuncs {
     Thread.sleep(timeoutBeforeExec)
 
     val newPartitionList = splitPartition(sitesPartitionedList, siteAtWhichSplit)
-//    masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     Thread.sleep(timeoutAfterExec)
 
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+
     newPartitionList
   }
-
-
 
   //find the partition that the part is in
   def splitPartition(
