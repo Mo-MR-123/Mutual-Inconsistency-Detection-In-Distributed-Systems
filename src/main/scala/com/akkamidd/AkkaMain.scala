@@ -236,6 +236,8 @@ object UtilFuncs {
     // numberOfSitesInFoundSets should be equal to the number of sites in the partToMerge set
     if(numberOfSitesInFoundSets != partToMerge.size) {
       throw new Exception("Not valid site set for merging: the partitions that need to be merge do not contain all the sites given in partToMerge")
+    } else if (setsToMerge.length != 2) {
+      throw new Exception(s"Merging should happen over two paritions, ${setsToMerge.length} paritions were specified")
     }
 
     newPartitionList :+ partToMerge
