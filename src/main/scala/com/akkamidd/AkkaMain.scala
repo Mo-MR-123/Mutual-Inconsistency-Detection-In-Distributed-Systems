@@ -39,36 +39,28 @@ object AkkaMain extends App {
       case command if command contains "split" =>
         val splitCommand = command.split("-").tail
 
-        if (splitCommand.contains("{") && splitCommand.contains("}")) {
-          val siteNamesToSplit = splitCommand(0).tail.dropRight(1).split(",")
-          println(siteNamesToSplit)
-          if (splitCommand.length == 2) { // e.g. split-10-1000
-            val timeoutValue = splitCommand(1).toLong
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, timeoutValue, timeoutValue)
-          } else {
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, 1000, 1000)
-          }
+        val siteNameToSplit = splitCommand(0)
+        if (splitCommand.length == 3) {
+          val timeoutValue = splitCommand(1).toLong
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, timeoutValue, timeoutValue)
         } else {
-          val siteNameToSplit = splitCommand(0)
-          if (splitCommand.length == 3) {
-            val timeoutValue = splitCommand(1).toLong
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, timeoutValue, timeoutValue)
-          } else {
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
-          }
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
         }
 
       case command if command contains "merge" =>
         val mergeCommand = command.split("-").tail
         val siteFrom = mergeCommand(0)
         val siteTo = mergeCommand(1)
-        val siteNamesToMerge = mergeCommand(2).tail.dropRight(1).split(",").toSet // e.g. marge-0-11-{10,11,12}-1000
 
-        if (mergeCommand.length == 4) {
-          val timeoutValue = mergeCommand(3).toLong
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, timeoutValue, timeoutValue)
-        } else {
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, 1000, 1000)
+        if (mergeCommand(2).contains("{") && mergeCommand(2).contains("}")) {
+          val siteNamesToMerge = mergeCommand(2).tail.dropRight(1).split(",").toSet // e.g. marge-0-11-{10,11,12}-1000
+
+          if (mergeCommand.length == 4) {
+            val timeoutValue = mergeCommand(3).toLong
+            partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, timeoutValue, timeoutValue)
+          } else {
+            partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, 1000, 1000)
+          }
         }
 
       case "quit" =>
