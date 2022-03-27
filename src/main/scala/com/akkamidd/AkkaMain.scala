@@ -165,25 +165,6 @@ object UtilFuncs {
   def callSplit(
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
-                 partToSplit: Set[String],
-                 timeoutBeforeExec: Long,
-                 timeoutAfterExec: Long
-               ): List[Set[String]] =
-  {
-    Thread.sleep(timeoutBeforeExec)
-
-    val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
-
-    Thread.sleep(timeoutAfterExec)
-
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
-
-    newPartitionList
-  }
-
-  def callSplit(
-                 masterSystem: ActorSystem[MasterSiteProtocol],
-                 sitesPartitionedList: List[Set[String]],
                  siteAtWhichSplit: String,
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long
@@ -198,28 +179,6 @@ object UtilFuncs {
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     newPartitionList
-  }
-
-  //find the partition that the part is in
-  def splitPartition(
-                      sitesPartitionedList: List[Set[String]],
-                      partToSplit: Set[String]
-                    ): List[Set[String]] =
-  {
-    var newPartitionList:List[Set[String]] = sitesPartitionedList
-    for (set <- newPartitionList){
-      if (partToSplit.subsetOf(set)) {
-        // remove The old partition
-        newPartitionList = newPartitionList.filter(!_.equals(set))
-        // create new partition for the remaining part
-        val setRemain = set -- partToSplit
-        newPartitionList = newPartitionList :+ setRemain
-        // create new partition for the partToSplit and append the new one to partition list
-        newPartitionList = newPartitionList :+ partToSplit
-        return newPartitionList
-      }
-    }
-    throw new Exception("Not valid sub-partition in current DAG")
   }
 
   //find the partition that the part is in
