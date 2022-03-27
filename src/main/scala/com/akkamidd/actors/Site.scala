@@ -309,8 +309,9 @@ object Site {
       } else {
         log.info(s"[Consistency Detected] For File $originPointer -> no version conflict detected: $vv1 - $vv2")
       }
-      fileList = fileList ++ uniqueFilesP1 ++ uniqueFilesP2 + (originPointer -> versionVector)
+      fileList = fileList + (originPointer -> versionVector)
     }
+    fileList = fileList ++ fileListP1 ++ fileListP2
     if (debugMode) {
       log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
     }
