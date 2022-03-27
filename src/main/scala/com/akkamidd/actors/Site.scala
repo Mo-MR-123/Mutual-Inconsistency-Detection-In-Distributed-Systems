@@ -169,13 +169,16 @@ object Site {
 
         case CheckInconsistency(fromFileList, parent, partitionSet) =>
           val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, debugMode)
-
-          parent ! Broadcast(
-            ReplaceFileList(newFileList),
-            context.self,
-            partitionSet
-          )
-          fromMap(newFileList, debugMode)
+          if (newFileList.nonEmpty) {
+            parent ! Broadcast(
+              ReplaceFileList(newFileList),
+              context.self,
+              partitionSet
+            )
+            fromMap(newFileList, debugMode)
+          } else {
+            fromMap(fileList, debugMode)
+          }
 
         case ReplaceFileList(newFileList) =>
           if (debugMode) {
@@ -184,19 +187,6 @@ object Site {
           fromMap(newFileList, debugMode)
 
       }
-  }
-
-  private def addSiteToEachOriginPointer(
-                                          fl: Map[(String, String), Map[String, Int]],
-                                          siteToAdd: String
-                                        ): Map[(String, String), Map[String, Int]] =
-  {
-    for(op <- fl) {
-      if (!op._2.contains(siteToAdd)) {
-        updateFileList(fl, op._1, siteToAdd, 0)
-      }
-    }
-    fl
   }
 
   private def mergeFileList(

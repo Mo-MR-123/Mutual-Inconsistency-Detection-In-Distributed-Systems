@@ -12,7 +12,7 @@ object AkkaMain extends App {
   val numSiteActors = args(0).toLong
   val siteActorNames = List.range(0, numSiteActors).map(_.toString)
 
-  val masterSystem = ActorSystem(MasterSite(false), "MasterSite")
+  val masterSystem = ActorSystem(MasterSite(debugMode = true), "MasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
   println(s"$numSiteActors Site actors spawned successfully! Names of all actors: $siteActorNames")
@@ -39,36 +39,24 @@ object AkkaMain extends App {
       case command if command contains "split" =>
         val splitCommand = command.split("-").tail
 
-        if (splitCommand.contains("{") && splitCommand.contains("}")) {
-          val siteNamesToSplit = splitCommand(0).tail.dropRight(1).split(",")
-          println(siteNamesToSplit)
-          if (splitCommand.length == 2) { // e.g. split-10-1000
-            val timeoutValue = splitCommand(1).toLong
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, timeoutValue, timeoutValue)
-          } else {
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNamesToSplit.toSet, 1000, 1000)
-          }
+        val siteNameToSplit = splitCommand(0)
+        if (splitCommand.length == 3) {
+          val timeoutValue = splitCommand(1).toLong
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, timeoutValue, timeoutValue)
         } else {
-          val siteNameToSplit = splitCommand(0)
-          if (splitCommand.length == 3) {
-            val timeoutValue = splitCommand(1).toLong
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, timeoutValue, timeoutValue)
-          } else {
-            partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
-          }
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
         }
 
       case command if command contains "merge" =>
         val mergeCommand = command.split("-").tail
         val siteFrom = mergeCommand(0)
         val siteTo = mergeCommand(1)
-        val siteNamesToMerge = mergeCommand(2).tail.dropRight(1).split(",").toSet // e.g. marge-0-11-{10,11,12}-1000
 
-        if (mergeCommand.length == 4) {
-          val timeoutValue = mergeCommand(3).toLong
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, timeoutValue, timeoutValue)
+        if (mergeCommand.length == 3) {
+          val timeoutValue = mergeCommand(2).toLong
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue)
         } else {
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, 1000, 1000)
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000)
         }
 
       case "quit" =>
@@ -144,35 +132,15 @@ object UtilFuncs {
                  siteNameTo: String,
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
-                 partToMerge: Set[String],
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
-    val newPartitionList = mergePartition(sitesPartitionedList, partToMerge)
-//    masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+    val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
 
     masterSystem ! Merge(siteNameFrom, siteNameTo, newPartitionList)
-
-    Thread.sleep(timeoutAfterExec)
-
-    newPartitionList
-  }
-
-  def callSplit(
-                 masterSystem: ActorSystem[MasterSiteProtocol],
-                 sitesPartitionedList: List[Set[String]],
-                 partToSplit: Set[String],
-                 timeoutBeforeExec: Long,
-                 timeoutAfterExec: Long
-               ): List[Set[String]] =
-  {
-    Thread.sleep(timeoutBeforeExec)
-
-    val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
 
     Thread.sleep(timeoutAfterExec)
 
@@ -198,28 +166,6 @@ object UtilFuncs {
     printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     newPartitionList
-  }
-
-  //find the partition that the part is in
-  def splitPartition(
-                      sitesPartitionedList: List[Set[String]],
-                      partToSplit: Set[String]
-                    ): List[Set[String]] =
-  {
-    var newPartitionList:List[Set[String]] = sitesPartitionedList
-    for (set <- newPartitionList){
-      if (partToSplit.subsetOf(set)) {
-        // remove The old partition
-        newPartitionList = newPartitionList.filter(!_.equals(set))
-        // create new partition for the remaining part
-        val setRemain = set -- partToSplit
-        newPartitionList = newPartitionList :+ setRemain
-        // create new partition for the partToSplit and append the new one to partition list
-        newPartitionList = newPartitionList :+ partToSplit
-        return newPartitionList
-      }
-    }
-    throw new Exception("Not valid sub-partition in current DAG")
   }
 
   //find the partition that the part is in
@@ -253,33 +199,38 @@ object UtilFuncs {
 
   def mergePartition(
                       sitesPartitionedList: List[Set[String]],
-                      partToMerge: Set[String]
+                      firstSite: String,
+                      secondSite: String
                     ): List[Set[String]] =
   {
     var setsToMerge: List[Set[String]] = List()
     var newPartitionList: List[Set[String]] = sitesPartitionedList
 
-    if(partToMerge.isEmpty) {
+    if(firstSite == null || secondSite == null) {
       return newPartitionList
     }
 
-    var numberOfSitesInFoundSets = 0
     for(set <- sitesPartitionedList) {
-      if(set.subsetOf(partToMerge)) {
+      if(set.contains(firstSite) || set.contains(secondSite)) {
         // get the sets which need to be merged
         setsToMerge = setsToMerge :+ set
         // remove the set for the merge
         newPartitionList = newPartitionList.filter(!_.equals(set))
-
-        numberOfSitesInFoundSets = numberOfSitesInFoundSets + set.size
       }
     }
-    // numberOfSitesInFoundSets should be equal to the number of sites in the partToMerge set
-    if(numberOfSitesInFoundSets != partToMerge.size) {
-      throw new Exception("Not valid site set for merging: the partitions that need to be merge do not contain all the sites given in partToMerge")
+
+    // Two partitions should be merged at once
+    if (setsToMerge.length != 2) {
+      throw new Exception(s"Merging should happen over two partitions, ${setsToMerge.length} partitions were specified")
     }
 
-    newPartitionList :+ partToMerge
+    var newPartition: Set[String] = Set()
+
+    for(set <- setsToMerge) {
+      newPartition = newPartition.union(set)
+    }
+
+    newPartitionList :+ newPartition
   }
 
   def printCurrentNetworkPartition(
