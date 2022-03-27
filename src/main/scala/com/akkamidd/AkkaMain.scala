@@ -12,7 +12,7 @@ object AkkaMain extends App {
   val numSiteActors = args(0).toLong
   val siteActorNames = List.range(0, numSiteActors).map(_.toString)
 
-  val masterSystem = ActorSystem(MasterSite(false), "MasterSite")
+  val masterSystem = ActorSystem(MasterSite(debugMode = true), "MasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
   println(s"$numSiteActors Site actors spawned successfully! Names of all actors: $siteActorNames")
@@ -224,7 +224,7 @@ object UtilFuncs {
       throw new Exception(s"Merging should happen over two partitions, ${setsToMerge.length} partitions were specified")
     }
 
-    var newPartition = Set(String)
+    var newPartition: Set[String] = Set()
 
     for(set <- setsToMerge) {
       newPartition = newPartition.union(set)
