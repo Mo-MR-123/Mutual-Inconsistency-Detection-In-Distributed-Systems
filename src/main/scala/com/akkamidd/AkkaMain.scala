@@ -5,6 +5,8 @@ import com.akkamidd.actors.MasterSite
 import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol, Merge, SpawnSite}
 import org.slf4j.Logger
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.io.StdIn
 
 
@@ -12,11 +14,11 @@ object AkkaMain extends App {
   val numSiteActors = args(0).toLong
   val siteActorNames = List.range(0, numSiteActors).map(_.toString)
 
-  val masterSystem = ActorSystem(MasterSite(debugMode = true), "MasterSite")
+  val masterSystem = ActorSystem(MasterSite(debugMode = false), "MasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
-  println(s"$numSiteActors Site actors spawned successfully! Names of all actors: $siteActorNames")
-  println(s"The partition list is $partitionList")
+  println(s"$numSiteActors Site actors spawned successfully!")
+  UtilFuncs.printCurrentNetworkPartition(partitionList, masterSystem.log)
 
   while (true) {
     StdIn.readLine match {
@@ -60,7 +62,7 @@ object AkkaMain extends App {
         }
 
       case "quit" =>
-        UtilFuncs.terminateSystem(masterSystem, 1000)
+        UtilFuncs.terminateSystem(masterSystem)
         System.exit(0)
 
       case _ =>
@@ -68,16 +70,20 @@ object AkkaMain extends App {
     }
   }
 
-  UtilFuncs.terminateSystem(masterSystem, 1000)
+  UtilFuncs.terminateSystem(masterSystem)
 
 }
 
 
 object UtilFuncs {
 
-  def terminateSystem(actorSystem: ActorSystem[MasterSiteProtocol], timeoutAfterTermination: Long): Unit = {
+  /**
+   * Initiates the termination of the actor system and awaits until everything in the system is shutdown.
+   * @param actorSystem The Actor System that needs to be shutdown
+   */
+  def terminateSystem(actorSystem: ActorSystem[MasterSiteProtocol]): Unit = {
     actorSystem.terminate()
-    Thread.sleep(timeoutAfterTermination)
+    Await.ready(actorSystem.whenTerminated, Duration.Inf) // I had to give something, but I hope that you don't have to infinitely wait :)
   }
 
   def callUploadFile(
