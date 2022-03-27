@@ -52,15 +52,11 @@ object AkkaMain extends App {
         val siteFrom = mergeCommand(0)
         val siteTo = mergeCommand(1)
 
-        if (mergeCommand(2).contains("{") && mergeCommand(2).contains("}")) {
-          val siteNamesToMerge = mergeCommand(2).tail.dropRight(1).split(",").toSet // e.g. marge-0-11-{10,11,12}-1000
-
-          if (mergeCommand.length == 4) {
-            val timeoutValue = mergeCommand(3).toLong
-            partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, timeoutValue, timeoutValue)
-          } else {
-            partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, siteNamesToMerge, 1000, 1000)
-          }
+        if (mergeCommand.length == 3) {
+          val timeoutValue = mergeCommand(2).toLong
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue)
+        } else {
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000)
         }
 
       case "quit" =>
@@ -136,20 +132,19 @@ object UtilFuncs {
                  siteNameTo: String,
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
-                 partToMerge: Set[String],
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
-    val newPartitionList = mergePartition(sitesPartitionedList, partToMerge)
-//    masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+    val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
 
     masterSystem ! Merge(siteNameFrom, siteNameTo, newPartitionList)
 
     Thread.sleep(timeoutAfterExec)
+
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     newPartitionList
   }
@@ -226,7 +221,7 @@ object UtilFuncs {
 
     // Two partitions should be merged at once
     if (setsToMerge.length != 2) {
-      throw new Exception(s"Merging should happen over two paritions, ${setsToMerge.length} paritions were specified")
+      throw new Exception(s"Merging should happen over two partitions, ${setsToMerge.length} partitions were specified")
     }
 
     var newPartition = Set(String)
