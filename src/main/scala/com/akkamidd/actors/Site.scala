@@ -2,13 +2,9 @@ package com.akkamidd.actors
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.util.Timeout
 import com.akkamidd.actors.MasterSite.Broadcast
 import org.slf4j.Logger
 
-import scala.concurrent.duration.DurationInt
-import scala.util.Failure
-import scala.util.Success
 
 object Site {
   // SiteProtocol: The messages that define the protocol between Sites
@@ -51,16 +47,11 @@ object Site {
   final case class ReplaceFileList(
                                     fileListToReplace: Map[(String, String), Map[String, Int]]
                                   ) extends SiteProtocol
-  final case class BroadcastDone(msg: String) extends SiteProtocol
 
-  def apply(): Behavior[SiteProtocol] =
-    fromMap(Map[(String, String), Map[String, Int]]()) // A hashmap mapping origin pointers of files to their corresponding version vectors
+  def apply(debugMode: Boolean): Behavior[SiteProtocol] =
+    fromMap(Map[(String, String), Map[String, Int]](), debugMode) // A hashmap mapping origin pointers of files to their corresponding version vectors
 
-  def fromMap(fileList: Map[(String, String), Map[String, Int]]): Behavior[SiteProtocol] =  Behaviors.setup {
-    // asking someone requires a timeout, if the timeout hits without response
-    // the ask is failed with a TimeoutException
-    implicit val timeout: Timeout = 2.seconds
-
+  def fromMap(fileList: Map[(String, String), Map[String, Int]], debugMode: Boolean): Behavior[SiteProtocol] =  Behaviors.setup {
     context =>
       Behaviors.receiveMessage {
         case FileUpload(timestamp, parent, fileName, partitionSet) =>
@@ -88,10 +79,9 @@ object Site {
             partitionSet
           )
 
-          context.log.info(s"[FileUpload] Generated file hash for site $siteName")
-          context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer , fileList = $newFileList")
+          context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer ; fileList = $newFileList")
 
-          fromMap(newFileList)
+          fromMap(newFileList, debugMode)
 
         case FileUpdate(originPointer: (String, String), parent, partitionList) =>
           // Check if the hashFile exists
@@ -102,17 +92,17 @@ object Site {
             val newVersion: Int = fileList(originPointer)(siteName) + 1
             val newFileList = updateFileList(fileList, originPointer, siteName, newVersion)
 
-            context.log.info(s"[FileUpdate] File $originPointer is updated. fileList becomes = $newFileList")
+            context.log.info(s"[FileUpdate] File $originPointer is updated. File list changes to: $newFileList")
             parent ! Broadcast(
               FileUpdatedConfirm(originPointer = originPointer, updatedVersion = newVersion, siteActor = context.self),
               context.self,
               partitionList
             )
 
-            fromMap(newFileList)
+            fromMap(newFileList, debugMode)
           } else {
-            context.log.error(s"[FileUpdate] fileHash = $originPointer does not exist in fileList = $fileList")
-            fromMap(fileList)
+            context.log.error(s"[FileUpdate] originPointer = $originPointer does not exist in fileList = $fileList")
+            fromMap(fileList, debugMode)
           }
 
         case FileDuplicate(originPointer: (String, String), versionVector: Map[String, Int], filename: String, parent, partitionSet) =>
@@ -123,7 +113,10 @@ object Site {
             if (!fileList.contains(originPointer)) {
               val newVersionVector = versionVector ++ Map(siteName -> 0)
               val newFileList = fileList + (originPointer -> newVersionVector)
-              context.log.info(s"[FileDuplicate] site $siteName has duplicated $originPointer using version vector $versionVector. fileList $newFileList.")
+
+              if (debugMode) {
+                context.log.info(s"[FileDuplicate] site $siteName has duplicated $originPointer using version vector $versionVector. fileList $newFileList.")
+              }
 
               parent ! Broadcast(
                 FileDuplicate(originPointer = originPointer, versionVector = newVersionVector, fileName = filename, parent = parent, partitionSet),
@@ -131,16 +124,22 @@ object Site {
                 partitionSet
               )
 
-              fromMap(newFileList)
+              fromMap(newFileList, debugMode)
+
             } else {
               val newFileList = mergeFileList(fileList, originPointer, versionVector)
-              context.log.info(s"[FileDuplicate] site $siteName has version vector $versionVector. fileList $newFileList.")
-              fromMap(newFileList)
+              if (debugMode) {
+                context.log.info(s"[FileDuplicate] site $siteName has version vector $versionVector. fileList $newFileList.")
+              }
+              fromMap(newFileList, debugMode)
             }
+
           } else {
             val newFileList = mergeFileList(fileList, originPointer, versionVector)
-            context.log.info(s"[FileDuplicate] originPointer = $originPointer already exists in fileList = $newFileList. VersionVec $versionVector. Site $siteName")
-            fromMap(newFileList)
+            if (debugMode) {
+              context.log.info(s"[FileDuplicate] originPointer = $originPointer already exists in fileList = $newFileList. VersionVec $versionVector. Site $siteName")
+            }
+            fromMap(newFileList, debugMode)
           }
 
         case FileUpdatedConfirm(originPointer, newVersion, fromSite) =>
@@ -148,34 +147,44 @@ object Site {
           if (fileList.contains(originPointer) && fileList(originPointer).contains(siteThatUpdatedVersion)) {
             val newFileList = updateFileList(fileList, originPointer, siteThatUpdatedVersion, newVersion)
 
-            context.log.info(s"[FileUpdatedConfirm] originPointer = $originPointer, version = $newVersion, newFileList = $newFileList. Site ${context.self.path.name}")
-            fromMap(newFileList)
+            if (debugMode) {
+              context.log.info(s"[FileUpdatedConfirm] originPointer = $originPointer, version = $newVersion, newFileList = $newFileList. Site ${context.self.path.name}")
+            }
+
+            fromMap(newFileList, debugMode)
           } else {
-            context.log.error(s"originPointer = $originPointer not in fileList = $fileList. newVersion $newVersion. Site ${context.self.path.name}")
+            if (debugMode) {
+              context.log.error(s"originPointer = $originPointer not in fileList = $fileList. newVersion $newVersion. Site ${context.self.path.name}")
+            }
+
             Behaviors.unhandled
           }
 
         case Merged(to, parent, partitionSet) =>
-          context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
+          if (debugMode) {
+            context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
+          }
           to ! CheckInconsistency(fileList, parent, partitionSet)
-          fromMap(fileList)
+          fromMap(fileList, debugMode)
 
         case CheckInconsistency(fromFileList, parent, partitionSet) =>
-          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList)
-          parent ! Broadcast(
-            ReplaceFileList(newFileList),
-            context.self,
-            partitionSet
-          )
-          fromMap(newFileList)
+          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, debugMode)
+          if (newFileList.nonEmpty) {
+            parent ! Broadcast(
+              ReplaceFileList(newFileList),
+              context.self,
+              partitionSet
+            )
+            fromMap(newFileList, debugMode)
+          } else {
+            fromMap(fileList, debugMode)
+          }
 
         case ReplaceFileList(newFileList) =>
-          context.log.info(s"[ReplaceFileList.${context.self.path.name}] Replaced FileList with newFileList $newFileList")
-          fromMap(newFileList)
-
-        case BroadcastDone(msg: String) =>
-          context.log.info(s"$msg")
-          Behaviors.same
+          if (debugMode) {
+            context.log.info(s"[ReplaceFileList.${context.self.path.name}] Replaced FileList with newFileList $newFileList")
+          }
+          fromMap(newFileList, debugMode)
 
       }
   }
@@ -233,21 +242,42 @@ object Site {
   private def inconsistencyDetection(
                                       log: Logger,
                                       fileListP1: Map[(String, String), Map[String, Int]],
-                                      fileListP2: Map[(String, String), Map[String, Int]]
+                                      fileListP2: Map[(String, String), Map[String, Int]],
+                                      debugMode: Boolean
                                     ): Map[(String, String), Map[String, Int]] = {
-    // Assume both lists are same format
-    val zippedLists = (fileListP1 zip fileListP2).map(pair => (pair._1._1, pair._1._2, pair._2._2))
+    // Zip on the same origin pointers
+    val zippedLists = for {
+      (op1, vv1) <- fileListP1
+      (op2, vv2) <- fileListP2
+      if op1 == op2
+    } yield (op1, vv1, vv2)
+
+    // To keep the unique origin pointers in both the first and second partition.
+    val uniqueFilesP1 = fileListP1.filter(f => !fileListP2.contains(f._1))
+    val uniqueFilesP2 = fileListP2.filter(f => !fileListP1.contains(f._1))
+
+    // Empty filelist for results
     var fileList = Map[(String, String), Map[String, Int]]()
 
     for ((originPointer, vv1, vv2) <- zippedLists) {
-      val zipVV = vv1 zip vv2
+      // Zip on same siteNames
+      val zipVV = for {
+        (siteName1, version1) <- vv1
+        (siteName2, version2) <- vv2
+        if siteName1 == siteName2
+      } yield (siteName1, version1, version2)
+
+      // To keep the unique siteNames in version vector.
+      val uniqueVV1 = vv1.filter(vv => !vv2.contains(vv._1))
+      val uniqueVV2 = vv2.filter(vv => !vv1.contains(vv._1))
+
       var versionVector = Map[String, Int]()
 
       // Keep track on the differences with regards to the version vector for each partition respective.
       var count1 = 0
       var count2 = 0
 
-      for (((siteName, version1), (_, version2)) <- zipVV) {
+      for ((siteName, version1, version2) <- zipVV) {
         if (version1 > version2) {
           count1 += 1
           versionVector = versionVector + (siteName -> version1)
@@ -259,6 +289,8 @@ object Site {
         }
       }
 
+      versionVector = versionVector ++ uniqueVV1 ++ uniqueVV2
+
       // Check whether one of the version vectors is dominant over the other or if both contain conflicting updated site versions.
       if (count1 != 0 && count2 == 0 || count2 != 0 && count1 == 0) {
         log.info(s"[Inconsistency Detected] For File $originPointer -> Compatible version conflict detected: $vv1 - $vv2")
@@ -269,7 +301,10 @@ object Site {
       }
       fileList = fileList + (originPointer -> versionVector)
     }
-    log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
+    fileList = fileList ++ fileListP1 ++ fileListP2
+    if (debugMode) {
+      log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
+    }
     fileList
   }
 

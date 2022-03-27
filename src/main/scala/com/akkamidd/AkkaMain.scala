@@ -2,10 +2,79 @@ package com.akkamidd
 
 import akka.actor.typed.ActorSystem
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{MasterSiteProtocol, Merge, SpawnSite}
+import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol}
 import com.akkamidd.timestamp.MasterSiteTimestamp
-import com.akkamidd.timestamp.MasterSiteTimestamp.{TimestampProtocol, Merge, SpawnSite}
+import com.akkamidd.timestamp.MasterSiteTimestamp.TimestampProtocol
 import org.slf4j.Logger
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.io.StdIn
+
+object AkkaMain extends App {
+  val numSiteActors = args(0).toLong
+  val siteActorNames = List.range(0, numSiteActors).map(_.toString)
+
+  val masterSystem = ActorSystem(MasterSite(debugMode = false), "MasterSite")
+  var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
+
+  println(s"$numSiteActors Site actors spawned successfully!")
+  UtilFuncs.printCurrentNetworkPartition(partitionList, masterSystem.log)
+
+  while (true) {
+    StdIn.readLine match {
+      case command if command contains "upload" =>
+        val uploadCommand = command.split("-").tail
+        val currTimestamp = System.currentTimeMillis().toString
+        val siteToUpload = uploadCommand(0)
+        val fileName = uploadCommand(1)
+
+        UtilFuncs.callUploadFile(siteToUpload, currTimestamp, masterSystem, fileName, partitionList)
+
+      case command if command contains "update" =>
+        val updateCommand = command.split("-").tail
+        val siteToUpload = updateCommand(0)
+        val originPointerParts = updateCommand(1).tail.dropRight(1).split(",")
+        val originPointer = (originPointerParts(0).trim, originPointerParts(1).trim)
+
+        UtilFuncs.callUpdateFile(siteToUpload, originPointer, masterSystem, partitionList)
+
+      case command if command contains "split" =>
+        val splitCommand = command.split("-").tail
+
+        val siteNameToSplit = splitCommand(0)
+        if (splitCommand.length == 3) {
+          val timeoutValue = splitCommand(1).toLong
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, timeoutValue, timeoutValue)
+        } else {
+          partitionList = UtilFuncs.callSplit(masterSystem, partitionList, siteNameToSplit, 1000, 1000)
+        }
+
+      case command if command contains "merge" =>
+        val mergeCommand = command.split("-").tail
+        val siteFrom = mergeCommand(0)
+        val siteTo = mergeCommand(1)
+
+        if (mergeCommand.length == 3) {
+          val timeoutValue = mergeCommand(2).toLong
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue)
+        } else {
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000)
+        }
+
+      case "quit" =>
+        UtilFuncs.terminateSystem(masterSystem)
+        System.exit(0)
+
+      case _ =>
+        println("Not a valid command!")
+    }
+  }
+
+  UtilFuncs.terminateSystem(masterSystem)
+
+}
+
 
 object UtilFuncsTimestamp {
   /**
@@ -149,41 +218,55 @@ object UtilFuncsTimestamp {
     logger.info(result.toString())
   }
 
-  def runTimestampAlgo(): Unit = {
-    val masterSiteTimestamp: ActorSystem[TimestampProtocol] = ActorSystem(MasterSiteTimestamp(), "MasterSiteTimestamp")
-
-    var partitionList: List[Set[String]] = spawnSites(masterSiteTimestamp, List("A", "B", "C", "D"), List(), 1000)
-
-    val time_a1 = System.currentTimeMillis().toString
-    masterSiteTimestamp ! MasterSiteTimestamp.FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
-    masterSiteTimestamp ! MasterSiteTimestamp.FileUploadMasterSite("A", time_a1, "test2.txt", partitionList)
-    // split into {A,B} {C,D}
-    partitionList = callSplit(masterSiteTimestamp, partitionList, Set("A", "B"), 500, 500)
-
-    val time_a2 = System.currentTimeMillis().toString
-    masterSiteTimestamp ! MasterSiteTimestamp.FileUpdateMasterSite("A", "test.txt", time_a2, partitionList)
-    masterSiteTimestamp ! MasterSiteTimestamp.FileUpdateMasterSite("B", "test.txt", time_a2, partitionList)
-    masterSiteTimestamp ! MasterSiteTimestamp.FileUpdateMasterSite("C", "test.txt", time_a2, partitionList)
-
-    //  merge into {A, B, C, D}
-    partitionList = callMerge("A", "C", masterSiteTimestamp, partitionList, Set("A", "B", "C", "D"), 500, 500)
-  }
 }
 
 object UtilFuncs {
+
+  /**
+   * Initiates the termination of the actor system and awaits until everything in the system is shutdown.
+   * @param actorSystem The Actor System that needs to be shutdown
+   */
+  def terminateSystem(actorSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+    actorSystem.terminate()
+    Await.ready(actorSystem.whenTerminated, Duration.Inf) // I had to give something, but I hope that you don't have to infinitely wait :)
+  }
+
+  def callUploadFile(
+                  siteName: String,
+                  timestamp: String,
+                  masterSystem: ActorSystem[MasterSiteProtocol],
+                  fileName: String,
+                  partitionList: List[Set[String]]
+                ): Unit =
+  {
+    masterSystem ! FileUploadMasterSite(siteName, timestamp, fileName, partitionList)
+  }
+
+  def callUpdateFile(
+                  siteName: String,
+                  originPointer: (String, String),
+                  masterSystem: ActorSystem[MasterSiteProtocol],
+                  partitionList: List[Set[String]]
+                ): Unit =
+  {
+    masterSystem ! FileUpdateMasterSite(siteName, originPointer, partitionList)
+  }
+
   /**
    * Send messages to MasterSite to instruct it to create a new Site Actor in the Actor System.
-   * @param masterSystem Mastersite.
-   * @param siteNameList List of sitenames
-   * @param partitionList List of partitions
-   * @param timeout Timeout for the sleeping thread.
-   * @return list of newly created sites.
+   * @param masterSystem The Actor System that is used to send messages to the MasterSite
+   * @param siteNameList The names of the Site Actors to spawn
+   * @param timeout The incurred timeout after sending the Spawn Messages to the master sites to
+   *                ensure all sites are spawned before continuing with other operations on the system
+   * @param partitionList The initial partition list to use, List() by default
+   * @return The partition list that contains 1 set containing the names of the spawned sites.
+   *         We assume that all Site Actors are initially in 1 partition.
    */
   def spawnSites(
                   masterSystem: ActorSystem[MasterSiteProtocol],
                   siteNameList: List[String],
-                  partitionList: List[Set[String]],
-                  timeout: Long
+                  timeout: Long,
+                  partitionList: List[Set[String]] = List(),
                 ): List[Set[String]] =
   {
     siteNameList.foreach(siteName => {
@@ -200,20 +283,19 @@ object UtilFuncs {
                  siteNameTo: String,
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
-                 partToMerge: Set[String],
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
-    val newPartitionList = mergePartition(sitesPartitionedList, partToMerge)
-    masterSystem.log.info("Merge, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+    val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
 
     masterSystem ! MasterSite.Merge(siteNameFrom, siteNameTo, newPartitionList)
 
     Thread.sleep(timeoutAfterExec)
+
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     newPartitionList
   }
@@ -221,18 +303,18 @@ object UtilFuncs {
   def callSplit(
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
-                 partToSplit: Set[String],
+                 siteAtWhichSplit: String,
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
-    val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
-    masterSystem.log.info("Split, new PartitionList: {}", newPartitionList)
-    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+    val newPartitionList = splitPartition(sitesPartitionedList, siteAtWhichSplit)
 
     Thread.sleep(timeoutAfterExec)
+
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
 
     newPartitionList
   }
@@ -240,12 +322,19 @@ object UtilFuncs {
   //find the partition that the part is in
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
-                      partToSplit: Set[String]
+                      siteAtWhichSplit: String
                     ): List[Set[String]] =
   {
     var newPartitionList:List[Set[String]] = sitesPartitionedList
+
     for (set <- newPartitionList){
-      if (partToSplit.subsetOf(set)) {
+      if (set.contains(siteAtWhichSplit)) {
+        // the sites whose number is bigger than siteAtWhichSplit should be splitted away
+        val partToSplit = set.filter(_>siteAtWhichSplit)
+        // if the site is the biggest in the current partition, then nothing to split
+        if (partToSplit.isEmpty){
+          return sitesPartitionedList
+        }
         // remove The old partition
         newPartitionList = newPartitionList.filter(!_.equals(set))
         // create new partition for the remaining part
@@ -261,33 +350,38 @@ object UtilFuncs {
 
   def mergePartition(
                       sitesPartitionedList: List[Set[String]],
-                      partToMerge: Set[String]
+                      firstSite: String,
+                      secondSite: String
                     ): List[Set[String]] =
   {
     var setsToMerge: List[Set[String]] = List()
     var newPartitionList: List[Set[String]] = sitesPartitionedList
 
-    if(partToMerge.isEmpty) {
+    if(firstSite == null || secondSite == null) {
       return newPartitionList
     }
 
-    var numberOfSitesInFoundSets = 0
     for(set <- sitesPartitionedList) {
-      if(set.subsetOf(partToMerge)) {
+      if(set.contains(firstSite) || set.contains(secondSite)) {
         // get the sets which need to be merged
         setsToMerge = setsToMerge :+ set
         // remove the set for the merge
         newPartitionList = newPartitionList.filter(!_.equals(set))
-
-        numberOfSitesInFoundSets = numberOfSitesInFoundSets + set.size
       }
     }
-    // numberOfSitesInFoundSets should be equal to the number of sites in the partToMerge set
-    if(numberOfSitesInFoundSets != partToMerge.size) {
-      throw new Exception("Not valid site set for merging: the partitions that need to be merge do not contain all the sites given in partToMerge")
+
+    // Two partitions should be merged at once
+    if (setsToMerge.length != 2) {
+      throw new Exception(s"Merging should happen over two partitions, ${setsToMerge.length} partitions were specified")
     }
 
-    newPartitionList :+ partToMerge
+    var newPartition: Set[String] = Set()
+
+    for(set <- setsToMerge) {
+      newPartition = newPartition.union(set)
+    }
+
+    newPartitionList :+ newPartition
   }
 
   def printCurrentNetworkPartition(
@@ -311,34 +405,43 @@ object UtilFuncs {
     result.deleteCharAt(result.length()  - 1)
     logger.info(result.toString())
   }
-
-  def runVersionvectorAlgo(): Unit = {
-    val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(), "MasterSite")
-
-    var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), List(), 1000)
-
-    // upload files
-    val time_a1 = System.currentTimeMillis().toString
-    masterSite ! MasterSite.FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
-
-    // split into {A,B} {C,D}
-    partitionList = UtilFuncs.callSplit(masterSite, partitionList, Set("A", "B"), 500, 500)
-
-    masterSite ! MasterSite.FileUpdateMasterSite("A", ("A", time_a1), partitionList)
-    masterSite ! MasterSite.FileUpdateMasterSite("B", ("A", time_a1), partitionList)
-
-    masterSite ! MasterSite.FileUpdateMasterSite("C", ("A", time_a1), partitionList)
-
-    //  merge into {A, B, C, D}
-    partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), 500, 500)
-  }
-
-
-
-
 }
 
-object AkkaMain extends App {
-//  UtilFuncs.runVersionvectorAlgo()
-  UtilFuncsTimestamp.runTimestampAlgo()
-}
+//object Experiments {
+//  def experiment0(
+//                   debugMode: Boolean,
+//                   spawningActorsTimeout: Long,
+//                   timeoutSplit: Long,
+//                   timeoutMerge: Long
+//                 ): Unit =
+//  {
+//    val experimentStartMillis = System.currentTimeMillis()
+//
+//    val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode), "MasterSite")
+//
+//    var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), spawningActorsTimeout)
+//
+//    // upload files
+//    val time_a1 = System.currentTimeMillis().toString
+//    UtilFuncs.callUploadFile("A", time_a1, masterSite, "test.txt", partitionList)
+////    masterSite ! FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
+//
+//    // split into {A,B} {C,D}
+//    partitionList = UtilFuncs.callSplit(masterSite, partitionList, Set("A", "B"), timeoutSplit, timeoutSplit)
+//
+//    UtilFuncs.callUpdateFile("A", ("A", time_a1), masterSite, partitionList)
+//    UtilFuncs.callUpdateFile("B", ("A", time_a1), masterSite, partitionList)
+//    UtilFuncs.callUpdateFile("C", ("A", time_a1), masterSite, partitionList)
+////    masterSite ! FileUpdateMasterSite("C", ("A", time_a1), partitionList)
+//
+//    //  merge into {A, B, C, D}
+//    partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), timeoutMerge, timeoutMerge)
+//
+//    val experimentEndMillis = System.currentTimeMillis() - timeoutMerge*2 - timeoutSplit*2 - spawningActorsTimeout
+//
+//    masterSite.terminate()
+//
+//    println(s"[Experiment 0] Execution time in millis: ${experimentEndMillis - experimentStartMillis}")
+//  }
+//}
+
