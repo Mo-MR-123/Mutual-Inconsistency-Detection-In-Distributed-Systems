@@ -255,19 +255,39 @@ object Site {
                                       fileListP2: Map[(String, String), Map[String, Int]],
                                       debugMode: Boolean
                                     ): Map[(String, String), Map[String, Int]] = {
-    // Assume both lists are same format
-    val zippedLists = (fileListP1 zip fileListP2).map(pair => (pair._1._1, pair._1._2, pair._2._2))
+    // Zip on the same origin pointers
+    val zippedLists = for {
+      (op1, vv1) <- fileListP1
+      (op2, vv2) <- fileListP2
+      if op1 == op2
+    } yield (op1, vv1, vv2)
+
+    // To keep the unique origin pointers in both the first and second partition.
+    val uniqueFilesP1 = fileListP1.filter(f => !fileListP2.contains(f._1))
+    val uniqueFilesP2 = fileListP2.filter(f => !fileListP1.contains(f._1))
+
+    // Empty filelist for results
     var fileList = Map[(String, String), Map[String, Int]]()
 
     for ((originPointer, vv1, vv2) <- zippedLists) {
-      val zipVV = vv1 zip vv2
+      // Zip on same siteNames
+      val zipVV = for {
+        (siteName1, version1) <- vv1
+        (siteName2, version2) <- vv2
+        if siteName1 == siteName2
+      } yield (siteName1, version1, version2)
+
+      // To keep the unique siteNames in version vector.
+      val uniqueVV1 = vv1.filter(vv => !vv2.contains(vv._1))
+      val uniqueVV2 = vv2.filter(vv => !vv1.contains(vv._1))
+
       var versionVector = Map[String, Int]()
 
       // Keep track on the differences with regards to the version vector for each partition respective.
       var count1 = 0
       var count2 = 0
 
-      for (((siteName, version1), (_, version2)) <- zipVV) {
+      for ((siteName, version1, version2) <- zipVV) {
         if (version1 > version2) {
           count1 += 1
           versionVector = versionVector + (siteName -> version1)
@@ -279,6 +299,8 @@ object Site {
         }
       }
 
+      versionVector = versionVector ++ uniqueVV1 ++ uniqueVV2
+
       // Check whether one of the version vectors is dominant over the other or if both contain conflicting updated site versions.
       if (count1 != 0 && count2 == 0 || count2 != 0 && count1 == 0) {
         log.info(s"[Inconsistency Detected] For File $originPointer -> Compatible version conflict detected: $vv1 - $vv2")
@@ -287,7 +309,7 @@ object Site {
       } else {
         log.info(s"[Consistency Detected] For File $originPointer -> no version conflict detected: $vv1 - $vv2")
       }
-      fileList = fileList + (originPointer -> versionVector)
+      fileList = fileList ++ uniqueFilesP1 ++ uniqueFilesP2 + (originPointer -> versionVector)
     }
     if (debugMode) {
       log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
