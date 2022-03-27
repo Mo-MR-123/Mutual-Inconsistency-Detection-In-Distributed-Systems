@@ -204,35 +204,38 @@ object UtilFuncs {
 
   def mergePartition(
                       sitesPartitionedList: List[Set[String]],
-                      partToMerge: Set[String]
+                      firstSite: String,
+                      secondSite: String
                     ): List[Set[String]] =
   {
     var setsToMerge: List[Set[String]] = List()
     var newPartitionList: List[Set[String]] = sitesPartitionedList
 
-    if(partToMerge.isEmpty) {
+    if(firstSite == null || secondSite == null) {
       return newPartitionList
     }
 
-    var numberOfSitesInFoundSets = 0
     for(set <- sitesPartitionedList) {
-      if(set.subsetOf(partToMerge)) {
+      if(set.contains(firstSite) || set.contains(secondSite)) {
         // get the sets which need to be merged
         setsToMerge = setsToMerge :+ set
         // remove the set for the merge
         newPartitionList = newPartitionList.filter(!_.equals(set))
-
-        numberOfSitesInFoundSets = numberOfSitesInFoundSets + set.size
       }
     }
-    // numberOfSitesInFoundSets should be equal to the number of sites in the partToMerge set
-    if(numberOfSitesInFoundSets != partToMerge.size) {
-      throw new Exception("Not valid site set for merging: the partitions that need to be merge do not contain all the sites given in partToMerge")
-    } else if (setsToMerge.length != 2) {
+
+    // Two partitions should be merged at once
+    if (setsToMerge.length != 2) {
       throw new Exception(s"Merging should happen over two paritions, ${setsToMerge.length} paritions were specified")
     }
 
-    newPartitionList :+ partToMerge
+    var newPartition = Set(String)
+
+    for(set <- setsToMerge) {
+      newPartition = newPartition.union(set)
+    }
+
+    newPartitionList :+ newPartition
   }
 
   def printCurrentNetworkPartition(
