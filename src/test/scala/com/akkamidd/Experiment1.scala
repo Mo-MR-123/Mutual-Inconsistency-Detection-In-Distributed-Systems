@@ -32,7 +32,7 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       UtilFuncs.callUpdateFile("C", ("A", time_a1), masterSite, partitionList)
 
       //  merge into {A, B, C, D}
-      partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), timeoutMerge, timeoutMerge)
+      partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, timeoutMerge, timeoutMerge)
 
 //      val experimentEndMillis = System.currentTimeMillis() - timeoutMerge*2 - timeoutSplit*2 - spawningActorsTimeout
       val experimentEndMillis = System.currentTimeMillis()
