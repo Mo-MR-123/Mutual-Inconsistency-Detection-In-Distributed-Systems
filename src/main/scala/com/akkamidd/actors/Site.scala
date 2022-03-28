@@ -168,7 +168,7 @@ object Site {
           fromMap(fileList, debugMode)
 
         case CheckInconsistency(fromFileList, parent, partitionSet) =>
-          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, debugMode)
+          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, partitionSet, debugMode)
           if (newFileList.nonEmpty) {
             parent ! Broadcast(
               ReplaceFileList(newFileList),
@@ -243,6 +243,7 @@ object Site {
                                       log: Logger,
                                       fileListP1: Map[(String, String), Map[String, Int]],
                                       fileListP2: Map[(String, String), Map[String, Int]],
+                                      partitionSet: Set[ActorRef[SiteProtocol]],
                                       debugMode: Boolean
                                     ): Map[(String, String), Map[String, Int]] = {
     // Zip on the same origin pointers
@@ -301,11 +302,27 @@ object Site {
       }
       fileList = fileList + (originPointer -> versionVector)
     }
-    fileList = fileList ++ fileListP1 ++ fileListP2
-    if (debugMode) {
-      log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
+
+    fileList = fileList ++ uniqueFilesP1 ++ uniqueFilesP2
+
+    var finalFileList = Map[(String, String), Map[String, Int]]()
+
+    // Final loop to add every site of the partition to every version vector.
+    for ((originPointer, versionVector) <- fileList) {
+      var newVersionVector = versionVector
+      for (site <- partitionSet) {
+        val siteName = site.path.name
+        if (!versionVector.contains(siteName)) {
+          newVersionVector = newVersionVector + (siteName -> 0)
+        }
+      }
+      finalFileList = finalFileList + (originPointer -> newVersionVector)
     }
-    fileList
+
+    if (debugMode) {
+      log.info(s"[LOGGER ID] $finalFileList. FL1 $fileListP1  FL2 $fileListP2 PartitionSet $partitionSet")
+    }
+    finalFileList
   }
 
 }
