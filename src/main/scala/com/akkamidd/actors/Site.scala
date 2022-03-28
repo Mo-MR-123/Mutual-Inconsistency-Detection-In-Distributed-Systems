@@ -79,7 +79,7 @@ object Site {
             partitionSet
           )
 
-          context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer")
+          context.log.info(s"[FileUpload] File $fileName uploaded! originPointer = $originPointer")
 
           fromMap(newFileList, debugMode)
 
@@ -320,7 +320,7 @@ object Site {
     }
 
     if (debugMode) {
-      log.info(s"[LOGGER ID] $finalFileList. FL1 $fileListP1  FL2 $fileListP2 PartitionSet $partitionSet")
+      log.info(s"[LOGGER ID] $finalFileList. FL1 $fileListP1  FL2 $fileListP2 PartitionSet ${partitionSet.map(_.path.name)}")
     }
     finalFileList
   }
