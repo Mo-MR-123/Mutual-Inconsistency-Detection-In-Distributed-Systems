@@ -79,7 +79,7 @@ object Site {
             partitionSet
           )
 
-          context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer ; fileList = $newFileList")
+          context.log.info(s"[FileUpload] File uploaded! originPointer = $originPointer")
 
           fromMap(newFileList, debugMode)
 
@@ -92,7 +92,7 @@ object Site {
             val newVersion: Int = fileList(originPointer)(siteName) + 1
             val newFileList = updateFileList(fileList, originPointer, siteName, newVersion)
 
-            context.log.info(s"[FileUpdate] File $originPointer is updated. File list changes to: $newFileList")
+            context.log.info(s"[FileUpdate] File $originPointer is updated!")
             parent ! Broadcast(
               FileUpdatedConfirm(originPointer = originPointer, updatedVersion = newVersion, siteActor = context.self),
               context.self,
