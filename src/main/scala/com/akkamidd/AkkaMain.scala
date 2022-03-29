@@ -18,7 +18,7 @@ object AkkaMain extends App {
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
   println(s"$numSiteActors Site actors spawned successfully!")
-  UtilFuncs.printCurrentNetworkPartition(partitionList, masterSystem.log)
+  println(s"Site Actor Names: $siteActorNames")
 
   while (true) {
     StdIn.readLine match {
@@ -78,12 +78,17 @@ object AkkaMain extends App {
 object UtilFuncs {
 
   /**
-   * Initiates the termination of the actor system and awaits until everything in the system is shutdown.
+   * Initiates the termination of the actor system and awaits until all Actors in the system are shutdown.
    * @param actorSystem The Actor System that needs to be shutdown
+   * @param awaitDuration The maximum duration to await for termination completion from the given system
    */
-  def terminateSystem(actorSystem: ActorSystem[MasterSiteProtocol]): Unit = {
+  def terminateSystem(
+                       actorSystem: ActorSystem[MasterSiteProtocol],
+                       awaitDuration: Duration = Duration.Inf
+                     ): Unit =
+  {
     actorSystem.terminate()
-    Await.ready(actorSystem.whenTerminated, Duration.Inf) // I had to give something, but I hope that you don't have to infinitely wait :)
+    Await.ready(actorSystem.whenTerminated, awaitDuration)
   }
 
   def callUploadFile(
