@@ -4,7 +4,7 @@ import akka.actor.typed.ActorSystem
 import com.akkamidd.actors.MasterSite
 import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol}
 import com.akkamidd.timestamp.MasterSiteTimestamp
-import com.akkamidd.timestamp.MasterSiteTimestamp.TimestampProtocol
+import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.slf4j.Logger
 
 import scala.concurrent.Await
@@ -16,6 +16,7 @@ object AkkaMain extends App {
   val siteActorNames = List.range(0, numSiteActors).map(_.toString)
 
   val masterSystem = ActorSystem(MasterSite(debugMode = false), "MasterSite")
+//  val masterSystem = ActorSystem(MasterSiteTimestamp(debugMode = false), "TimestampMasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
 
   println(s"$numSiteActors Site actors spawned successfully!")
@@ -86,7 +87,7 @@ object UtilFuncsTimestamp {
    * @return creates a list of created sites.
    */
   def spawnSites(
-                  masterSystem: ActorSystem[TimestampProtocol],
+                  masterSystem: ActorSystem[MasterTimestampProtocol],
                   siteNameList: List[String],
                   partitionList: List[Set[String]],
                   timeout: Long
@@ -104,7 +105,7 @@ object UtilFuncsTimestamp {
   def callMerge(
                  siteNameFrom: String,
                  siteNameTo: String,
-                 masterSystem: ActorSystem[TimestampProtocol],
+                 masterSystem: ActorSystem[MasterTimestampProtocol],
                  sitesPartitionedList: List[Set[String]],
                  partToMerge: Set[String],
                  timeoutBeforeExec: Long,
@@ -125,7 +126,7 @@ object UtilFuncsTimestamp {
   }
 
   def callSplit(
-                 masterSystem: ActorSystem[TimestampProtocol],
+                 masterSystem: ActorSystem[MasterTimestampProtocol],
                  sitesPartitionedList: List[Set[String]],
                  partToSplit: Set[String],
                  timeoutBeforeExec: Long,
