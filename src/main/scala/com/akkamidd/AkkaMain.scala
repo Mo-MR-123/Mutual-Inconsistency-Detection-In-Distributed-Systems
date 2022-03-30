@@ -2,13 +2,14 @@ package com.akkamidd
 
 import akka.actor.typed.ActorSystem
 import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol, Merge, SpawnSite}
+import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol}
+import com.akkamidd.timestamp.MasterSiteTimestamp
+import com.akkamidd.timestamp.MasterSiteTimestamp.TimestampProtocol
 import org.slf4j.Logger
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.io.StdIn
-
 
 object AkkaMain extends App {
   val numSiteActors = args(0).toLong
@@ -75,6 +76,150 @@ object AkkaMain extends App {
 }
 
 
+object UtilFuncsTimestamp {
+  /**
+   * Send messages to MasterSite to instruct it to create a new Site Actor in the Actor System.
+   * @param masterSystem Mastersite.
+   * @param siteNameList List of Sitenames.
+   * @param partitionList List of partitions.
+   * @param timeout Timeout for sleeping threads.
+   * @return creates a list of created sites.
+   */
+  def spawnSites(
+                  masterSystem: ActorSystem[TimestampProtocol],
+                  siteNameList: List[String],
+                  partitionList: List[Set[String]],
+                  timeout: Long
+                ): List[Set[String]] =
+  {
+    siteNameList.foreach(siteName => {
+      masterSystem ! MasterSiteTimestamp.SpawnSite(siteName)
+    })
+
+    Thread.sleep(timeout)
+
+    siteNameList.toSet +: partitionList
+  }
+
+  def callMerge(
+                 siteNameFrom: String,
+                 siteNameTo: String,
+                 masterSystem: ActorSystem[TimestampProtocol],
+                 sitesPartitionedList: List[Set[String]],
+                 partToMerge: Set[String],
+                 timeoutBeforeExec: Long,
+                 timeoutAfterExec: Long
+               ): List[Set[String]] =
+  {
+    Thread.sleep(timeoutBeforeExec)
+
+    val newPartitionList = mergePartition(sitesPartitionedList, partToMerge)
+    masterSystem.log.info("[Timestamp Protocol] Merge, new PartitionList: {}", newPartitionList)
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+
+    masterSystem ! MasterSiteTimestamp.Merge(siteNameFrom, siteNameTo, newPartitionList)
+
+    Thread.sleep(timeoutAfterExec)
+
+    newPartitionList
+  }
+
+  def callSplit(
+                 masterSystem: ActorSystem[TimestampProtocol],
+                 sitesPartitionedList: List[Set[String]],
+                 partToSplit: Set[String],
+                 timeoutBeforeExec: Long,
+                 timeoutAfterExec: Long
+               ): List[Set[String]] =
+  {
+    Thread.sleep(timeoutBeforeExec)
+
+    val newPartitionList = splitPartition(sitesPartitionedList, partToSplit)
+    masterSystem.log.info("[Timestamp Protocol] Split, new PartitionList: {}", newPartitionList)
+    printCurrentNetworkPartition(newPartitionList, masterSystem.log)
+
+    Thread.sleep(timeoutAfterExec)
+
+    newPartitionList
+  }
+
+  //find the partition that the part is in
+  def splitPartition(
+                      sitesPartitionedList: List[Set[String]],
+                      partToSplit: Set[String]
+                    ): List[Set[String]] =
+  {
+    var newPartitionList:List[Set[String]] = sitesPartitionedList
+    for (set <- newPartitionList){
+      if (partToSplit.subsetOf(set)) {
+        // remove The old partition
+        newPartitionList = newPartitionList.filter(!_.equals(set))
+        // create new partition for the remaining part
+        val setRemain = set -- partToSplit
+        newPartitionList = newPartitionList :+ setRemain
+        // create new partition for the partToSplit and append the new one to partition list
+        newPartitionList = newPartitionList :+ partToSplit
+        return newPartitionList
+      }
+    }
+    throw new Exception("[Timestamp Protocol] Not valid sub-partition in current DAG")
+  }
+
+  def mergePartition(
+                      sitesPartitionedList: List[Set[String]],
+                      partToMerge: Set[String]
+                    ): List[Set[String]] =
+  {
+    var setsToMerge: List[Set[String]] = List()
+    var newPartitionList: List[Set[String]] = sitesPartitionedList
+
+    if(partToMerge.isEmpty) {
+      return newPartitionList
+    }
+
+    var numberOfSitesInFoundSets = 0
+    for(set <- sitesPartitionedList) {
+      if(set.subsetOf(partToMerge)) {
+        // get the sets which need to be merged
+        setsToMerge = setsToMerge :+ set
+        // remove the set for the merge
+        newPartitionList = newPartitionList.filter(!_.equals(set))
+
+        numberOfSitesInFoundSets = numberOfSitesInFoundSets + set.size
+      }
+    }
+    // numberOfSitesInFoundSets should be equal to the number of sites in the partToMerge set
+    if(numberOfSitesInFoundSets != partToMerge.size) {
+      throw new Exception("[Timestamp Protocol] Not valid site set for merging: the partitions that need to be merge do not contain all the sites given in partToMerge")
+    }
+
+    newPartitionList :+ partToMerge
+  }
+
+  def printCurrentNetworkPartition(
+                                    sitesPartitionedList: List[Set[String]],
+                                    logger: Logger
+                                  ): Unit =
+  {
+    val result = new StringBuilder()
+
+    result.append("The network partition is: " )
+    for(set <- sitesPartitionedList) {
+      result.append("{")
+      for(site <- set) {
+        result.append(site + ",")
+      }
+      // Remove last comma
+      result.deleteCharAt(result.length() - 1)
+      result.append("},")
+    }
+    // Remove last comma
+    result.deleteCharAt(result.length()  - 1)
+    logger.info(result.toString())
+  }
+
+}
+
 object UtilFuncs {
 
   /**
@@ -130,7 +275,7 @@ object UtilFuncs {
                 ): List[Set[String]] =
   {
     siteNameList.foreach(siteName => {
-      masterSystem ! SpawnSite(siteName)
+      masterSystem ! MasterSite.SpawnSite(siteName)
     })
 
     Thread.sleep(timeout)
@@ -151,7 +296,7 @@ object UtilFuncs {
 
     val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
 
-    masterSystem ! Merge(siteNameFrom, siteNameTo, newPartitionList)
+    masterSystem ! MasterSite.Merge(siteNameFrom, siteNameTo, newPartitionList)
 
     Thread.sleep(timeoutAfterExec)
 
@@ -304,3 +449,4 @@ object UtilFuncs {
 //    println(s"[Experiment 0] Execution time in millis: ${experimentEndMillis - experimentStartMillis}")
 //  }
 //}
+
