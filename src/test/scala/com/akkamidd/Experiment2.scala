@@ -24,13 +24,13 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
      val timeoutMerge = 500
 
      val experimentStartMillis = System.currentTimeMillis()
-     val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(false), "MasterSite")
+     val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode = false), "MasterSite")
 
 
-     val listSiteNames = (0 to 50).toList.map(x => "sitename" + x)
+     val listSiteNames = List.range(0, 50).map("Site-"+_.toString)
      var listOriginPointers = Map[String, String]()
 
-     val partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, listSiteNames, spawningActorsTimeout)
+     val partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
      var thresholdSplit = 5
      var thresholdMerge = 5
@@ -57,6 +57,7 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
             UtilFuncs.callUpdateFile(randomSite, tuple, masterSite, partitionList)
 
           // Split
+          // TODO: keep track of which partitions are created
           case x if x > 50 && x <= 75 =>
             if (thresholdSplit != 0) {
               val randomSite = listSiteNames(random.nextInt(50) + 1)

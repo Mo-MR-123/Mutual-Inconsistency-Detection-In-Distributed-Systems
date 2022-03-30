@@ -13,7 +13,7 @@ import scala.io.StdIn
 
 object AkkaMain extends App {
   val numSiteActors = args(0).toLong
-  val siteActorNames = List.range(0, numSiteActors).map(_.toString)
+  val siteActorNames = List.range(0, numSiteActors).map("Site"+_.toString)
 
   val masterSystem = ActorSystem(MasterSite(debugMode = false), "MasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
