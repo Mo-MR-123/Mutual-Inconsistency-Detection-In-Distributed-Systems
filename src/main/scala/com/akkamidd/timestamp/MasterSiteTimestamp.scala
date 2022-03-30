@@ -1,47 +1,47 @@
 package com.akkamidd.timestamp
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.akkamidd.timestamp.SiteTimestamp.{Merged, SiteProtocol}
+import com.akkamidd.timestamp.SiteTimestamp.{Merged, TimestampProtocol}
 
 
 // the master actor who spawn the sites
 object MasterSiteTimestamp {
 
-  // MasterSiteProtocol - Defines the messages that dictates the protocol of the master site.
-  sealed trait TimestampProtocol
+  // MasterTimestampProtocol - Defines the messages that dictates the protocol of the master site of the timestamp algorithm.
+  sealed trait MasterTimestampProtocol
 
   final case class Broadcast(
-                              msg: SiteTimestamp.SiteProtocol,
-                              from: ActorRef[SiteTimestamp.SiteProtocol],
-                              partitionSet: Set[ActorRef[SiteProtocol]]
-                            ) extends TimestampProtocol
+                              msg: TimestampProtocol,
+                              from: ActorRef[TimestampProtocol],
+                              partitionSet: Set[ActorRef[TimestampProtocol]]
+                            ) extends MasterTimestampProtocol
   final case class FileUploadMasterSite(
                                          to: String,
                                          fileName: String,
                                          timestamp: String,
                                          partitionList: List[Set[String]]
-                                       ) extends TimestampProtocol
+                                       ) extends MasterTimestampProtocol
   final case class FileUpdateMasterSite(
                                          to: String,
                                          fileName: String,
                                          newTimestamp: String,
                                          partitionList: List[Set[String]]
-                                       ) extends TimestampProtocol
+                                       ) extends MasterTimestampProtocol
   final case class Merge(
                           fromSiteMerge: String,
                           toSiteMerge: String,
                           partitionList: List[Set[String]]
-                        ) extends TimestampProtocol
-  final case class SpawnSite(siteName: String) extends TimestampProtocol
+                        ) extends MasterTimestampProtocol
+  final case class SpawnSite(siteName: String) extends MasterTimestampProtocol
 
-  def apply(debugMode: Boolean): Behavior[TimestampProtocol] = Behaviors.setup {
+  def apply(debugMode: Boolean): Behavior[MasterTimestampProtocol] = Behaviors.setup {
     context => masterSiteReceive(context, List(), debugMode)
   }
 
   def findSiteGivenName(
                          siteName: String,
-                         children: List[ActorRef[SiteProtocol]]
-                       ): Option[ActorRef[SiteProtocol]] =
+                         children: List[ActorRef[TimestampProtocol]]
+                       ): Option[ActorRef[TimestampProtocol]] =
   {
     for (child <- children) {
       if (child.path.name.equals(siteName)) {
@@ -52,9 +52,9 @@ object MasterSiteTimestamp {
   }
 
   def getPartitionActorRefSet(
-                               children: List[ActorRef[SiteProtocol]],
+                               children: List[ActorRef[TimestampProtocol]],
                                partitionSetString: Set[String]
-                             ): Set[ActorRef[SiteProtocol]] =
+                             ): Set[ActorRef[TimestampProtocol]] =
   {
     partitionSetString.map(s => {
       findSiteGivenName(s, children).get
@@ -77,15 +77,15 @@ object MasterSiteTimestamp {
   }
 
   def masterSiteReceive(
-                         context: ActorContext[TimestampProtocol],
-                         children: List[ActorRef[SiteProtocol]],
+                         context: ActorContext[MasterTimestampProtocol],
+                         children: List[ActorRef[TimestampProtocol]],
                          debugMode: Boolean
                        )
-  : Behaviors.Receive[TimestampProtocol] = Behaviors.receiveMessage {
+  : Behaviors.Receive[MasterTimestampProtocol] = Behaviors.receiveMessage {
 
 
 
-    case Broadcast(msg: SiteProtocol, from: ActorRef[SiteProtocol], partitionSet: Set[ActorRef[SiteProtocol]]) =>
+    case Broadcast(msg: TimestampProtocol, from: ActorRef[TimestampProtocol], partitionSet: Set[ActorRef[TimestampProtocol]]) =>
       partitionSet.foreach { child =>
         if(!child.equals(from)) {
           child ! msg
