@@ -18,7 +18,6 @@ object SiteTimestamp {
   //  final case class FileDeletion(replyTo: ActorRef[TimestampProtocol]) extends TimestampProtocol
   final case class FileUpdate(
                                fileName: String,
-                               newTimestamp: String,
                                parent: ActorRef[MasterTimestampProtocol],
                                partitionSet: Set[ActorRef[TimestampProtocol]]
                              ) extends TimestampProtocol
@@ -46,7 +45,6 @@ object SiteTimestamp {
   final case class ReplaceFileList(
                                     fileListToReplace: Map[String, String]
                                   ) extends TimestampProtocol
-  final case class BroadcastDone(msg: String) extends TimestampProtocol
 
 
 
@@ -85,11 +83,12 @@ object SiteTimestamp {
         /**
          * Updates the timestamp related to a file and calls broadcast such that other sites know about the update.
          */
-        case FileUpdate(fileName: String, newTimestamp: String, parent: ActorRef[MasterTimestampProtocol], partitionList: Set[ActorRef[TimestampProtocol]]) =>
+        case FileUpdate(fileName: String, parent: ActorRef[MasterTimestampProtocol], partitionList: Set[ActorRef[TimestampProtocol]]) =>
           // Check if the hashFile exists
           if (fileList.contains(fileName)) {
 
             // Increment the versionVector corresponding to originPointer by 1.
+            val newTimestamp = System.currentTimeMillis.toString
             val newFileList = updateFileList(fileList = fileList, fileName = fileName, newVal = newTimestamp)
 
             context.log.info(s"[FileUpdate] File $fileName is updated. fileList becomes = $newFileList")
@@ -281,14 +280,14 @@ object SiteTimestamp {
 
     for ((filename, time1, time2) <- zippedLists) {
       // Check whether one of the version vectors is dominant over the other.
-      if (time1 > time2) { //TODO: Check if string comparison actually works for dates
-        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 - $time2")
+      if (time1.toLong > time2.toLong) { //TODO: Check if string comparison actually works for dates
+        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 > $time2")
         fileList = fileList + (filename -> time1)
-      } else if (time1 < time2) {
-        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 - $time2")
+      } else if (time1.toLong < time2.toLong) {
+        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 < $time2")
         fileList = fileList + (filename -> time2)
       } else {
-        log.info(s"[Consistency Detected] For File $filename -> no version conflict detected: $time1 - $time2")
+        log.info(s"[Consistency Detected] For File $filename -> no version conflict detected: $time1 <=> $time2")
         fileList = fileList + (filename -> time1)
       }
     }

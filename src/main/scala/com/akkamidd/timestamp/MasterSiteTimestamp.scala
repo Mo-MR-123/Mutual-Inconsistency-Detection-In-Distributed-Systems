@@ -24,7 +24,6 @@ object MasterSiteTimestamp {
   final case class FileUpdateMasterSite(
                                          to: String,
                                          fileName: String,
-                                         newTimestamp: String,
                                          partitionList: List[Set[String]]
                                        ) extends MasterTimestampProtocol
   final case class Merge(
@@ -110,13 +109,13 @@ object MasterSiteTimestamp {
 
 
 
-    case FileUpdateMasterSite(siteThatUpdates: String, fileName: String, newTimestamp: String, partitionList: List[Set[String]]) =>
+    case FileUpdateMasterSite(siteThatUpdates: String, fileName: String, partitionList: List[Set[String]]) =>
       val site = findSiteGivenName(siteThatUpdates, children).get
 
       val getPartitionSet = findPartitionSet(siteThatUpdates, partitionList)
       val partitionSetRefs = getPartitionActorRefSet(children, getPartitionSet)
 
-      site ! SiteTimestamp.FileUpdate(fileName, newTimestamp, context.self, partitionSetRefs)
+      site ! SiteTimestamp.FileUpdate(fileName, context.self, partitionSetRefs)
 
       masterSiteReceive(context, children, debugMode)
 
