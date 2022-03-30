@@ -58,7 +58,6 @@ object Site {
           val siteName = context.self.path.name
 
           // System wide unique ID of the file ensuring unique id for each file uploaded regardless of file name.
-          // example = hash concatenation of 'A' + filename 'test' -> 10002938
           val originPointer = (siteName, timestamp)
 
           // Check if the file already exists by checking the hash in the originPointers map.
