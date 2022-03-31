@@ -9,35 +9,80 @@ import org.scalatest.wordspec.AnyWordSpecLike
 class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   "Experiment 1" must {
     "Detect Inconsistency" in {
+
+      def randomString(length: Int) = {
+        val r = new scala.util.Random
+        val sb = new StringBuilder
+        for (_ <- 1 to length) {
+          sb.append(r.nextPrintableChar)
+        }
+        sb.toString
+      }
+
       val spawningActorsTimeout = 1000
-      val timeoutSplit = 500
-      val timeoutMerge = 500
+      val timeoutSplit = 1000
+      val timeoutMerge = 1000
 
-      val experimentStartMillis = System.currentTimeMillis()
+      val experimentStartMillis = System.currentTimeMillis
+      val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode = false), "MasterSite")
 
-      val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(false), "MasterSite")
+      val listSiteNames = List.range(0, 20).map("Site" + _.toString)
+      var listOriginPointers = Map[String, String]()
 
-      var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), spawningActorsTimeout)
+      var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
-      // upload files
-      val time_a1 = System.currentTimeMillis().toString
+      var thresholdSplit = 2
+      var thresholdMerge = 2
 
-      UtilFuncs.callUploadFile("A", time_a1, masterSite, "test.txt", partitionList)
+      val random = scala.util.Random
+      // Can never have more merges than splits so only needs to check whether the merge threshold has been reached.
+      while (thresholdMerge > 0) {
+        val randomValue = random.nextInt(100) // 0 to 100
 
-      // partitionList = UtilFuncs.callSplit(masterSite, partitionList, Set("A", "B"), 500, 500)
-      partitionList = UtilFuncs.callSplit(masterSite, partitionList, "B", timeoutSplit, timeoutSplit)
+        randomValue match {
+          // Upload
+          case x if x <= 25 =>
+            val randomSite = listSiteNames(random.nextInt(50))
+            val time = System.currentTimeMillis().toString
+            listOriginPointers = listOriginPointers + (randomSite -> time)
+            val fileName = randomString(5) + ".txt"
+            UtilFuncs.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
-      UtilFuncs.callUpdateFile("A", ("A", time_a1), masterSite, partitionList)
-      UtilFuncs.callUpdateFile("B", ("A", time_a1), masterSite, partitionList)
-      UtilFuncs.callUpdateFile("C", ("A", time_a1), masterSite, partitionList)
+          // Update
+          case x if x > 25 && x <= 50 =>
+            val randomSite = listSiteNames(random.nextInt(50))
+            val randomFileIndex = random.nextInt(listOriginPointers.size)
+            val tuple = listOriginPointers.toList(randomFileIndex)
+            UtilFuncs.callUpdateFile(randomSite, tuple, masterSite, partitionList)
 
-      //  merge into {A, B, C, D}
-      partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, timeoutMerge, timeoutMerge)
+          // Split
+          case x if x > 50 && x <= 75 =>
+            if (thresholdSplit != 0) {
+              val randomSite = listSiteNames(random.nextInt(50))
+              val previousPartitionList = partitionList
+              partitionList = UtilFuncs.callSplit(masterSite, partitionList, randomSite, timeoutSplit, timeoutSplit)
+              if (!previousPartitionList.equals(partitionList)) {
+                thresholdSplit = thresholdSplit - 1
+              }
+            }
 
-//      val experimentEndMillis = System.currentTimeMillis() - timeoutMerge*2 - timeoutSplit*2 - spawningActorsTimeout
-      val experimentEndMillis = System.currentTimeMillis()
+          // Merge
+          case x if x > 75 && x < 100 =>
+            if (thresholdMerge != 0) {
+              val randomSite1 = listSiteNames(random.nextInt(50))
+              val randomSite2 = listSiteNames(random.nextInt(50))
+              val previousPartitionList = partitionList
+              partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge)
+              if (!previousPartitionList.equals(partitionList)) {
+                thresholdMerge = thresholdMerge - 1
+              }
+            }
 
-      println(s"[Experiment 1] Execution time in millis: ${experimentEndMillis - experimentStartMillis}")
+        }
+      }
+
+      val estimatedTime = System.currentTimeMillis - experimentStartMillis
+      masterSite.log.info("Experiment 1 ended - time: " + estimatedTime.toString)
     }
   }
 }

@@ -202,7 +202,8 @@ object UtilFuncsTimestamp {
         return newPartitionList
       }
     }
-    throw new Exception("Not valid sub-partition in current DAG")
+
+    sitesPartitionedList
   }
 
   def mergePartition(
@@ -229,7 +230,7 @@ object UtilFuncsTimestamp {
 
     // Two partitions should be merged at once
     if (setsToMerge.length != 2) {
-      throw new Exception(s"Merging should happen over two partitions, ${setsToMerge.length} partitions were specified")
+      return sitesPartitionedList
     }
 
     var newPartition: Set[String] = Set()
@@ -395,7 +396,8 @@ object UtilFuncs {
         return newPartitionList
       }
     }
-    throw new Exception("Not valid sub-partition in current DAG")
+
+    sitesPartitionedList
   }
 
   def mergePartition(
@@ -422,7 +424,7 @@ object UtilFuncs {
 
     // Two partitions should be merged at once
     if (setsToMerge.length != 2) {
-      throw new Exception(s"Merging should happen over two partitions, ${setsToMerge.length} partitions were specified")
+      return sitesPartitionedList
     }
 
     var newPartition: Set[String] = Set()

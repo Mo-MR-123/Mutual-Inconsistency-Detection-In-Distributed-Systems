@@ -100,7 +100,7 @@ object Site {
 
             fromMap(newFileList, debugMode)
           } else {
-            context.log.error(s"[FileUpdate] originPointer = $originPointer does not exist in fileList = $fileList")
+            context.log.info(s"[FileUpdate] originPointer = $originPointer does not exist in fileList = $fileList")
             fromMap(fileList, debugMode)
           }
 
