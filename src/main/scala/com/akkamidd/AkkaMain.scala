@@ -7,6 +7,7 @@ import com.akkamidd.timestamp.MasterSiteTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.slf4j.Logger
 
+import java.io.{File, PrintWriter}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.io.StdIn
@@ -17,6 +18,8 @@ object AkkaMain extends App {
 
   val masterSystem = ActorSystem(MasterSite(debugMode = false), "MasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
+  val icdFileName = "output/sbt_command.txt"
+  val writerIcd = new PrintWriter(new File(icdFileName))
 
   println(s"$numSiteActors Site actors spawned successfully!")
   println(s"Site Actor Names: $siteActorNames")
@@ -57,9 +60,9 @@ object AkkaMain extends App {
 
         if (mergeCommand.length == 3) {
           val timeoutValue = mergeCommand(2).toLong
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue)
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue,writerIcd)
         } else {
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000)
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000,writerIcd)
         }
 
       case "quit" =>
@@ -335,14 +338,16 @@ object UtilFuncs {
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
                  timeoutBeforeExec: Long,
-                 timeoutAfterExec: Long
+                 timeoutAfterExec: Long,
+                 writerIcd: PrintWriter
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
     val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
-
-    masterSystem ! MasterSite.Merge(siteNameFrom, siteNameTo, newPartitionList)
+    if(!newPartitionList.equals(sitesPartitionedList)){
+    masterSystem ! MasterSite.Merge(siteNameFrom, siteNameTo, newPartitionList, writerIcd)
+    }
 
     Thread.sleep(timeoutAfterExec)
 

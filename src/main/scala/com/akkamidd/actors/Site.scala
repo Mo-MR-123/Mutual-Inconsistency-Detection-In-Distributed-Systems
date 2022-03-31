@@ -5,6 +5,8 @@ import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.MasterSite.Broadcast
 import org.slf4j.Logger
 
+import java.io.PrintWriter
+
 
 object Site {
   // SiteProtocol: The messages that define the protocol between Sites
@@ -37,12 +39,14 @@ object Site {
   final case class Merged(
                            to: ActorRef[SiteProtocol],
                            parent: ActorRef[MasterSite.MasterSiteProtocol],
-                           partitionSet: Set[ActorRef[SiteProtocol]]
+                           partitionSet: Set[ActorRef[SiteProtocol]],
+                           writerIcd:PrintWriter
                          ) extends SiteProtocol
   final case class CheckInconsistency(
                            fileList: Map[(String, String), Map[String, Int]],
                            parent: ActorRef[MasterSite.MasterSiteProtocol],
-                           partitionSet: Set[ActorRef[SiteProtocol]]
+                           partitionSet: Set[ActorRef[SiteProtocol]],
+                           writerIcd:PrintWriter
                          ) extends SiteProtocol
   final case class ReplaceFileList(
                                     fileListToReplace: Map[(String, String), Map[String, Int]]
@@ -159,15 +163,15 @@ object Site {
             Behaviors.unhandled
           }
 
-        case Merged(to, parent, partitionSet) =>
+        case Merged(to, parent, partitionSet,writerIcd) =>
           if (debugMode) {
             context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
           }
-          to ! CheckInconsistency(fileList, parent, partitionSet)
+          to ! CheckInconsistency(fileList, parent, partitionSet, writerIcd)
           fromMap(fileList, debugMode)
 
-        case CheckInconsistency(fromFileList, parent, partitionSet) =>
-          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, partitionSet, debugMode)
+        case CheckInconsistency(fromFileList, parent, partitionSet, writerIcd) =>
+          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, partitionSet, debugMode, writerIcd)
           if (newFileList.nonEmpty) {
             parent ! Broadcast(
               ReplaceFileList(newFileList),
@@ -243,7 +247,8 @@ object Site {
                                       fileListP1: Map[(String, String), Map[String, Int]],
                                       fileListP2: Map[(String, String), Map[String, Int]],
                                       partitionSet: Set[ActorRef[SiteProtocol]],
-                                      debugMode: Boolean
+                                      debugMode: Boolean,
+                                      writerIcd: PrintWriter
                                     ): Map[(String, String), Map[String, Int]] = {
     // Zip on the same origin pointers
     val zippedLists = for {
@@ -321,7 +326,10 @@ object Site {
     if (debugMode) {
       log.info(s"[LOGGER ID] $finalFileList. FL1 $fileListP1  FL2 $fileListP2 PartitionSet ${partitionSet.map(_.path.name)}")
     }
+    val counter:Int = 1
+    writerIcd.println(counter.toString)
     finalFileList
   }
+
 
 }

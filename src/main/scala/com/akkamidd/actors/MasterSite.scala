@@ -2,7 +2,7 @@ package com.akkamidd.actors
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.Site.{Merged, SiteProtocol}
-
+import java.io.{File, PrintWriter}
 
 // the master actor who spawn the sites
 object MasterSite {
@@ -28,7 +28,8 @@ object MasterSite {
   final case class Merge(
                           fromSiteMerge: String,
                           toSiteMerge: String,
-                          partitionList: List[Set[String]]
+                          partitionList: List[Set[String]],
+                          writerIcd: PrintWriter
                         ) extends MasterSiteProtocol
   final case class SpawnSite(siteName: String) extends MasterSiteProtocol
 
@@ -112,14 +113,14 @@ object MasterSite {
 
       masterSiteReceive(context, children, debugMode)
 
-    case Merge(fromSiteMerge, toSiteMerge, partitionList) =>
+    case Merge(fromSiteMerge, toSiteMerge, partitionList, writerIcd) =>
       val siteFrom = findSiteGivenName(fromSiteMerge, children).get
       val siteTo = findSiteGivenName(toSiteMerge, children).get
 
       val partitionSet = findPartitionSet(fromSiteMerge, partitionList)
       val partitionSetRefs = getPartitionActorRefSet(children, partitionSet)
 
-      siteFrom ! Merged(siteTo, context.self, partitionSetRefs)
+      siteFrom ! Merged(siteTo, context.self, partitionSetRefs, writerIcd)
 
       masterSiteReceive(context, children, debugMode)
 
