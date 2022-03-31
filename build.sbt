@@ -12,6 +12,10 @@ lazy val akkaVersion = "2.6.18"
 // sbt tasks, consider https://github.com/spray/sbt-revolver/
 fork := true
 
+// By default, the standard input of the sbt process is not forwarded to the forked process.
+// To connect input from sbt to AkkaMain, this is enabled:
+run / connectInput := true
+
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
   "ch.qos.logback" % "logback-classic" % "1.2.10",
