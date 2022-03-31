@@ -7,10 +7,11 @@ import com.akkamidd.actors.MasterSite.MasterSiteProtocol
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.io.{File, PrintWriter}
+import scala.util.Random
 
 class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   "Experiment 2" must {
-   "Detect Inconsistency" in {
+   "Run 10 times" in {
 
      def randomString(length: Int) = {
        val r = new scala.util.Random
@@ -20,33 +21,37 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
        }
        sb.toString
      }
-     val numRun = 10
 
-     for (i <- 1 to numRun) {
+     val numRuns = 10
+     val numSites = 50
 
-       val spawningActorsTimeout = 1000
-       val timeoutSplit = 1000
-       val timeoutMerge = 1000
+     val spawningActorsTimeout = 1500
+     val timeoutSplit = 1500
+     val timeoutMerge = 1500
+
+     for (i <- 1 to numRuns) {
+       val random: Random.type = scala.util.Random
+       random.setSeed(50)
 
        val experimentStartMillis = System.currentTimeMillis
        val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode = false), "MasterSite")
-       val numSites = 50
+
        val listSiteNames = List.range(0, numSites).map("Site" + _.toString)
        var listOriginPointers = Map[String, String]()
 
        var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
-       var thresholdSplit = 2
-       var thresholdMerge = 2
+       var thresholdSplit = 5
+       var thresholdMerge = 5
+
        val execFileName = "output/run" + i + "_experiment2_exec.txt"
        val icdFileName = "output/run" + i + "_experiment2_icd.txt"
-       val writerExec = new PrintWriter(new File(execFileName ))
-       val writerIcd = new PrintWriter(new File(icdFileName ))
+       val writerExec = new PrintWriter(new File(execFileName))
+       val writerIcd = new PrintWriter(new File(icdFileName))
 
-       val random = scala.util.Random
        // Can never have more merges than splits so only needs to check whether the merge threshold has been reached.
        while (thresholdMerge > 0) {
-         val randomValue = random.nextInt(100) // 0 to 100
+         val randomValue = random.nextInt(100) // 0 to 99
 
          randomValue match {
            // Upload
@@ -59,7 +64,7 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
            // Update
            case x if x > 25 && x <= 50 =>
-             if(listOriginPointers.size>0) {
+             if(listOriginPointers.nonEmpty) {
                val randomSite = listSiteNames(random.nextInt(numSites))
                val randomFileIndex = random.nextInt(listOriginPointers.size)
                val tuple = listOriginPointers.toList(randomFileIndex)
@@ -88,17 +93,17 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
                  thresholdMerge = thresholdMerge - 1
                }
              }
-
          }
        }
 
-
        val estimatedTime = System.currentTimeMillis - experimentStartMillis
        masterSite.log.info("Experiment 2 ended - time: " + estimatedTime.toString)
-       writerExec.write((estimatedTime).toString)
+
+       writerExec.write(estimatedTime.toString)
        writerExec.close()
        writerIcd.close()
 
+       UtilFuncs.terminateSystem(masterSite)
      }
    }
   }
