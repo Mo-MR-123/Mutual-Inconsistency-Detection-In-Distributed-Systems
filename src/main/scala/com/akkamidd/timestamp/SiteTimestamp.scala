@@ -5,6 +5,8 @@ import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.timestamp.MasterSiteTimestamp.{Broadcast, MasterTimestampProtocol}
 import org.slf4j.Logger
 
+import java.io.PrintWriter
+
 object SiteTimestamp {
   // TimestampProtocol: The messages that define the protocol between Sites that use timestamp algorithm
   sealed trait TimestampProtocol
@@ -35,12 +37,14 @@ object SiteTimestamp {
   final case class Merged(
                            to: ActorRef[TimestampProtocol],
                            parent: ActorRef[MasterTimestampProtocol],
-                           partitionSet: Set[ActorRef[TimestampProtocol]]
+                           partitionSet: Set[ActorRef[TimestampProtocol]],
+                           writerIcd:PrintWriter
                          ) extends TimestampProtocol
   final case class CheckInconsistency(
                                        fileList: Map[String, String],
                                        parent: ActorRef[MasterTimestampProtocol],
-                                       partitionSet: Set[ActorRef[TimestampProtocol]]
+                                       partitionSet: Set[ActorRef[TimestampProtocol]],
+                                       writerIcd:PrintWriter
                                      ) extends TimestampProtocol
   final case class ReplaceFileList(
                                     fileListToReplace: Map[String, String]
@@ -161,20 +165,20 @@ object SiteTimestamp {
         /**
          * Merges file list of current site and an other site.
          */
-        case Merged(to, parent, partitionSet) =>
+        case Merged(to, parent, partitionSet, writerIcd) =>
           if (debugMode) {
             context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
           }
 
-          to ! CheckInconsistency(fileList, parent, partitionSet)
+          to ! CheckInconsistency(fileList, parent, partitionSet, writerIcd)
           fromMap(fileList, debugMode)
 
 
         /**
          * Performs inconsistency detection for the timestamp algorithm.
          */
-        case CheckInconsistency(fromFileList, parent, partitionSet) =>
-          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, debugMode)
+        case CheckInconsistency(fromFileList, parent, partitionSet, writerIcd) =>
+          val newFileList = inconsistencyDetection(context.log, fileList, fromFileList, debugMode, writerIcd)
           if (newFileList.nonEmpty) {
             parent ! Broadcast(
               ReplaceFileList(newFileList),
@@ -262,8 +266,10 @@ object SiteTimestamp {
                                       log: Logger,
                                       fileListP1: Map[String, String],
                                       fileListP2: Map[String, String],
-                                      debugMode: Boolean
+                                      debugMode: Boolean,
+                                      writerIcd:PrintWriter
                                     ): Map[String, String] = {
+    var counter:Int = 1
 
     // Zip on the same fileName
     val zippedLists = for {
@@ -283,9 +289,13 @@ object SiteTimestamp {
       if (time1.toLong > time2.toLong) { //TODO: Check if string comparison actually works for dates
         log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 > $time2")
         fileList = fileList + (filename -> time1)
+
+        counter += 1
       } else if (time1.toLong < time2.toLong) {
         log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 < $time2")
         fileList = fileList + (filename -> time2)
+
+        counter += 1
       } else {
         log.info(s"[Consistency Detected] For File $filename -> no version conflict detected: $time1 <=> $time2")
         fileList = fileList + (filename -> time1)
@@ -297,6 +307,8 @@ object SiteTimestamp {
     if (debugMode) {
       log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
     }
+
+    writerIcd.println(counter.toString)
     fileList
   }
 

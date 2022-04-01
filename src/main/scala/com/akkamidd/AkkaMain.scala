@@ -145,13 +145,14 @@ object UtilFuncsTimestamp {
                  masterSystem: ActorSystem[MasterTimestampProtocol],
                  sitesPartitionedList: List[Set[String]],
                  timeoutBeforeExec: Long,
-                 timeoutAfterExec: Long
+                 timeoutAfterExec: Long,
+                 writerIcd: PrintWriter
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
     val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
-    masterSystem ! MasterSiteTimestamp.Merge(siteNameFrom, siteNameTo, newPartitionList)
+    masterSystem ! MasterSiteTimestamp.Merge(siteNameFrom, siteNameTo, newPartitionList, writerIcd)
 
     Thread.sleep(timeoutAfterExec)
 
@@ -346,7 +347,7 @@ object UtilFuncs {
 
     val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
     if(!newPartitionList.equals(sitesPartitionedList)){
-    masterSystem ! MasterSite.Merge(siteNameFrom, siteNameTo, newPartitionList, writerIcd)
+      masterSystem ! MasterSite.Merge(siteNameFrom, siteNameTo, newPartitionList, writerIcd)
     }
 
     Thread.sleep(timeoutAfterExec)

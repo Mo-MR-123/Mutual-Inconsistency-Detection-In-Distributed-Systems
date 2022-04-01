@@ -250,6 +250,8 @@ object Site {
                                       debugMode: Boolean,
                                       writerIcd: PrintWriter
                                     ): Map[(String, String), Map[String, Int]] = {
+    var counter:Int = 1
+
     // Zip on the same origin pointers
     val zippedLists = for {
       (op1, vv1) <- fileListP1
@@ -299,8 +301,10 @@ object Site {
       // Check whether one of the version vectors is dominant over the other or if both contain conflicting updated site versions.
       if (count1 != 0 && count2 == 0 || count2 != 0 && count1 == 0) {
         log.info(s"[Inconsistency Detected] For File $originPointer -> Compatible version conflict detected: $vv1 - $vv2")
+        counter += 1
       } else if (count1 != 0 && count2 != 0) {
         log.info(s"[Inconsistency Detected] For File $originPointer -> Incompatible version conflict detected: $vv1 - $vv2")
+        counter += 1
       } else {
         log.info(s"[Consistency Detected] For File $originPointer -> no version conflict detected: $vv1 - $vv2")
       }
@@ -326,7 +330,7 @@ object Site {
     if (debugMode) {
       log.info(s"[LOGGER ID] $finalFileList. FL1 $fileListP1  FL2 $fileListP2 PartitionSet ${partitionSet.map(_.path.name)}")
     }
-    val counter:Int = 1
+
     writerIcd.println(counter.toString)
     finalFileList
   }
