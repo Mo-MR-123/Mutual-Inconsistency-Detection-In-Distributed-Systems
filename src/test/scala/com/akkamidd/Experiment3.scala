@@ -99,7 +99,7 @@ class Experiment3 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         UtilFuncs.terminateSystem(masterSite)
 
         val estimatedTime = System.currentTimeMillis - experimentStartMillis
-        masterSite.log.info("Experiment 2 ended - time: " + estimatedTime.toString)
+        masterSite.log.info("Experiment 3 ended - time: " + estimatedTime.toString)
 
         writerExec.write(estimatedTime.toString)
         writerExec.close()

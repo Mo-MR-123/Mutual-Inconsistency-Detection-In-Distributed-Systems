@@ -1,11 +1,10 @@
 package com.akkamidd
-import akka.actor.testkit.typed.scaladsl.{LoggingTestKit, ScalaTestWithActorTestKit}
+import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorSystem
-import com.akkamidd.UtilFuncs
-import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.{FileUpdateMasterSite, FileUploadMasterSite, MasterSiteProtocol}
-import org.scalatest.wordspec.AnyWordSpecLike
 
+import com.akkamidd.actors.MasterSite
+import com.akkamidd.actors.MasterSite.MasterSiteProtocol
+import org.scalatest.wordspec.AnyWordSpecLike
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
@@ -99,7 +98,7 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
             UtilFuncs.terminateSystem(masterSite)
 
             val estimatedTime = System.currentTimeMillis - experimentStartMillis
-            masterSite.log.info("Experiment 2 ended - time: " + estimatedTime.toString)
+            masterSite.log.info("Experiment 1 ended - time: " + estimatedTime.toString)
 
             writerExec.write(estimatedTime.toString)
             writerExec.close()
