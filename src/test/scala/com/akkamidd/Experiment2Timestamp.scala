@@ -44,8 +44,8 @@ class Experiment2Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
         var thresholdSplit = 5
         var thresholdMerge = 5
 
-        val execFileName = "output/run" + i + "_experiment1timestamp_exec.txt"
-        val icdFileName = "output/run" + i + "_experiment1timestamp_icd.txt"
+        val execFileName = "output/run" + i + "_experiment2timestamp_exec.txt"
+        val icdFileName = "output/run" + i + "_experiment2timestamp_icd.txt"
         val writerExec = new PrintWriter(new File(execFileName))
         val writerIcd = new PrintWriter(new File(icdFileName))
 
@@ -58,7 +58,7 @@ class Experiment2Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
             case x if x <= 25 =>
               val randomSite = listSiteNames(random.nextInt(numSites))
               val time = System.currentTimeMillis().toString
-              listFilenames = listFilenames ++ randomSite
+              listFilenames = listFilenames :+ randomSite
               val fileName = randomString(5) + ".txt"
               UtilFuncsTimestamp.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 

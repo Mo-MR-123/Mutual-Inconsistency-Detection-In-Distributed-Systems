@@ -59,7 +59,7 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
             case x if x <= 25 =>
               val randomSite = listSiteNames(random.nextInt(numSites))
               val time = System.currentTimeMillis().toString
-              listFilenames = listFilenames ++ randomSite
+              listFilenames = listFilenames :+ randomSite
               val fileName = randomString(5) + ".txt"
               UtilFuncsTimestamp.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
