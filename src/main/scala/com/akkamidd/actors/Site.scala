@@ -236,7 +236,8 @@ object Site {
   }
 
   /**
-   * Helper method for merging two file lists
+   * Helper method for merging two file lists. It also keeps track of how many detection have been detected and
+   * writes it to a file.
    * @param log Logger for printing out information to the terminal.
    * @param fileListP1 File list of Partition 1.
    * @param fileListP2 File List of Partition 2.
@@ -250,7 +251,7 @@ object Site {
                                       debugMode: Boolean,
                                       writerIcd: PrintWriter
                                     ): Map[(String, String), Map[String, Int]] = {
-    var counter:Int = 1
+    var counter:Int = 0
 
     // Zip on the same origin pointers
     val zippedLists = for {

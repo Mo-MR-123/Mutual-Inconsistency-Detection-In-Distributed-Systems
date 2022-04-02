@@ -269,7 +269,7 @@ object SiteTimestamp {
                                       debugMode: Boolean,
                                       writerIcd:PrintWriter
                                     ): Map[String, String] = {
-    var counter:Int = 1
+    var counter:Int = 0
 
     // Zip on the same fileName
     val zippedLists = for {
