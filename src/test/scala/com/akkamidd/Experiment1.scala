@@ -45,8 +45,12 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
             val execFileName = "output/run" + i + "_experiment1_exec.txt"
             val icdFileName = "output/run" + i + "_experiment1_icd.txt"
-            val writerExec = new PrintWriter(new File(execFileName))
-            val writerIcd = new PrintWriter(new File(icdFileName))
+            val execFile = new File(execFileName)
+            val icdFile = new File(icdFileName)
+            execFile.createNewFile()
+            icdFile.createNewFile()
+            val writerExec = new PrintWriter(execFile)
+            val writerIcd = new PrintWriter(icdFile)
 
             // Can never have more merges than splits so only needs to check whether the merge threshold has been reached.
             while (thresholdMerge > 0) {
