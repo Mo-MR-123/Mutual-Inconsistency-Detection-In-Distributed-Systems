@@ -11,9 +11,7 @@ object ResultsFormat {
 
   def main(args: Array[String]) {
     val numberOfExperiments = 1
-    val numberOfRuns = 10
-
-
+    val numberOfRuns = 5
 
     for (j <- 1 to numberOfExperiments) {
       print("Experiment" + j + ":\n")
@@ -32,19 +30,5 @@ object ResultsFormat {
       val execAverage = execSum / numberOfRuns
       print(s"Experiment ${j} - Average execution time: ${execAverage}, icd average count: ${icdAverage} \n")
     }
-
-
-
-//    val exec = Source.fromFile("output/run1_experiment1_exec.txt").mkString
-//    val icd = Source.fromFile("output/run1_experiment1_icd.txt")
-//
-//    print(exec + "\n")
-//
-//    var icdCount: Int = 0
-//    for(line <- icd) {
-//      print(line.toInt + "\n")
-//      icdCount += line.asDigit
-//    }
-//    print(icdCount)
   }
 }

@@ -20,16 +20,19 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
             sb.toString
           }
 
-          val numRuns = 10
-          val numSites = 20
+          val numRuns = 5
+          val numSites = 5
 
-          val spawningActorsTimeout = 1500
-          val timeoutSplit = 1500
-          val timeoutMerge = 1500
+          val spawningActorsTimeout = 500
+          val timeoutSplit = 500
+          val timeoutMerge = 500
 
+
+          val randomNumberExperiment: Random.type = scala.util.Random
+          randomNumberExperiment.setSeed(50)
           for (i <- 1 to numRuns) {
             val random: Random.type = scala.util.Random
-            random.setSeed(50)
+            random.setSeed(randomNumberExperiment.nextInt())
 
             val experimentStartMillis = System.currentTimeMillis
 
@@ -40,8 +43,8 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
             var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
-            var thresholdSplit = 2
-            var thresholdMerge = 2
+            var thresholdSplit = 5
+            var thresholdMerge = 5
 
             val execFileName = "output/run" + i + "_experiment1_exec.txt"
             val icdFileName = "output/run" + i + "_experiment1_icd.txt"
@@ -58,7 +61,7 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
               randomValue match {
                 // Upload
-                case x if x <= 25 =>
+                case x if x <= 10 =>
                   val randomSite = listSiteNames(random.nextInt(numSites))
                   val time = System.currentTimeMillis().toString
                   listOriginPointers = listOriginPointers + (randomSite -> time)
@@ -66,7 +69,7 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
                   UtilFuncs.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
                 // Update
-                case x if x > 25 && x <= 50 =>
+                case x if x > 10 && x <= 50 =>
                   if (listOriginPointers.nonEmpty) {
                     val randomSite = listSiteNames(random.nextInt(numSites))
                     val randomFileIndex = random.nextInt(listOriginPointers.size)
