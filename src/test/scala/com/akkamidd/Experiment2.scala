@@ -23,11 +23,11 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
      }
 
      val numRuns = 10
-     val numSites = 50
+     val numSites = 10
 
-     val spawningActorsTimeout = 1500
-     val timeoutSplit = 1500
-     val timeoutMerge = 1500
+     val spawningActorsTimeout = 500
+     val timeoutSplit = 500
+     val timeoutMerge = 500
 
      for (i <- 1 to numRuns) {
        val random: Random.type = scala.util.Random
@@ -46,6 +46,10 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
        val execFileName = "output/run" + i + "_experiment2_exec.txt"
        val icdFileName = "output/run" + i + "_experiment2_icd.txt"
+       val execFile = new File(execFileName)
+       val icdFile = new File(icdFileName)
+       execFile.createNewFile()
+       icdFile.createNewFile()
        val writerExec = new PrintWriter(new File(execFileName))
        val writerIcd = new PrintWriter(new File(icdFileName))
 
@@ -55,7 +59,7 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
          randomValue match {
            // Upload
-           case x if x <= 25 =>
+           case x if x <= 10 =>
              val randomSite = listSiteNames(random.nextInt(numSites))
              val time = System.currentTimeMillis().toString
              listOriginPointers = listOriginPointers + (randomSite -> time)
@@ -63,7 +67,7 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
              UtilFuncs.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
            // Update
-           case x if x > 25 && x <= 50 =>
+           case x if x > 10 && x <= 50 =>
              if(listOriginPointers.nonEmpty) {
                val randomSite = listSiteNames(random.nextInt(numSites))
                val randomFileIndex = random.nextInt(listOriginPointers.size)
