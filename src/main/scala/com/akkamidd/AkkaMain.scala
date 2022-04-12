@@ -192,7 +192,7 @@ object UtilFuncsTimestamp {
     for (set <- newPartitionList){
       if (set.contains(siteAtWhichSplit)) {
         // the sites whose number is bigger than siteAtWhichSplit should be splitted away
-        val partToSplit = set.filter(_>siteAtWhichSplit)
+        val partToSplit = set.filter(x => x.substring(4).toInt> siteAtWhichSplit.substring(4).toInt)
         // if the site is the biggest in the current partition, then nothing to split
         if (partToSplit.isEmpty){
           return sitesPartitionedList
@@ -388,7 +388,8 @@ object UtilFuncs {
     for (set <- newPartitionList){
       if (set.contains(siteAtWhichSplit)) {
         // the sites whose number is bigger than siteAtWhichSplit should be splitted away
-        val partToSplit = set.filter(_>siteAtWhichSplit)
+        //val partToSplit = set.filter(_>siteAtWhichSplit)
+        val partToSplit = set.filter(x => x.substring(4).toInt> siteAtWhichSplit.substring(4).toInt)
         // if the site is the biggest in the current partition, then nothing to split
         if (partToSplit.isEmpty){
           return sitesPartitionedList
