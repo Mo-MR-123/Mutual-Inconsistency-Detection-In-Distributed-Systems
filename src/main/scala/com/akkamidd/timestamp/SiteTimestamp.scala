@@ -41,22 +41,22 @@ object SiteTimestamp {
                            writerIcd:PrintWriter
                          ) extends TimestampProtocol
   final case class CheckInconsistency(
-                                       fileList: Map[String, String],
+                                       fileList: Map[String, (String, String)],
                                        parent: ActorRef[MasterTimestampProtocol],
                                        partitionSet: Set[ActorRef[TimestampProtocol]],
                                        writerIcd:PrintWriter
                                      ) extends TimestampProtocol
   final case class ReplaceFileList(
-                                    fileListToReplace: Map[String, String]
+                                    fileListToReplace: Map[String, (String, String)]
                                   ) extends TimestampProtocol
 
 
 
   def apply(debugMode: Boolean): Behavior[TimestampProtocol] =
     // A hashmap mapping filename to the timestamp
-    fromMap(Map[String, String](), debugMode)
+    fromMap(Map[String, (String, String)](), debugMode)
 
-  def fromMap(fileList: Map[String, String], debugMode: Boolean): Behavior[TimestampProtocol] =  Behaviors.setup {
+  def fromMap(fileList: Map[String, (String, String)], debugMode: Boolean): Behavior[TimestampProtocol] =  Behaviors.setup {
     context =>
       Behaviors.receiveMessage {
 
@@ -70,8 +70,8 @@ object SiteTimestamp {
             Behaviors.same
           }
 
-          // Append new filename timestamp pair to the list.
-          val newFileList = fileList + (fileName -> timestamp)
+          // Append new filename timestamp pair to the list. Use same timestamp for previous as for new.
+          val newFileList = fileList + (fileName -> (timestamp, timestamp))
 
           parent ! Broadcast(
             FileDuplicate(fileName = fileName, timestamp = timestamp, parent = parent, partitionSet),
@@ -116,7 +116,7 @@ object SiteTimestamp {
           val siteName = context.self.path.name
           // Check if fileList actually keeps track of the file
           if (!fileList.contains(fileName)) {
-            val newFileList = fileList + (fileName -> timestamp)
+            val newFileList = fileList + (fileName -> (timestamp, timestamp))
 
             if (debugMode) {
               context.log.info(s"[FileDuplicate] site $siteName has duplicated $fileName at timestamp $timestamp. fileList $newFileList.")
@@ -131,7 +131,7 @@ object SiteTimestamp {
             fromMap(newFileList, debugMode)
 
           } else {
-            val newFileList = mergeFileList(fileList, fileName, timestamp)
+            val newFileList = mergeFileList(fileList, fileName, (timestamp, timestamp))
 
             if (debugMode) {
               context.log.info(s"[FileDuplicate] site $siteName has file with name $fileName. fileList $newFileList.")
@@ -211,10 +211,10 @@ object SiteTimestamp {
    * @return merged file list.
    */
   private def mergeFileList(
-                             fileList: Map[String, String],
+                             fileList: Map[String, (String, String)],
                              fileName: String,
-                             timestamp: String
-                           ): Map[String, String] =
+                             timestamp: (String, String)
+                           ): Map[String, (String, String)] =
   {
     if(!fileList.contains(fileName)) {
       val newFileList = fileList + (fileName -> timestamp)
@@ -222,7 +222,7 @@ object SiteTimestamp {
     }
     else { // or if fileList already has the file
       var currentTimestamp = fileList(fileName)
-      if(currentTimestamp < timestamp){
+      if(currentTimestamp._1.toLong <= timestamp._1.toLong && currentTimestamp._2.toLong < timestamp._2.toLong){
         currentTimestamp = timestamp
       }
 
@@ -239,19 +239,19 @@ object SiteTimestamp {
    * @return updated file list.
    */
   private def updateFileList(
-                              fileList: Map[String, String],
+                              fileList: Map[String, (String, String)],
                               fileName: String,
                               newVal: String
-                            ): Map[String, String] = {
+                            ): Map[String, (String, String)] = {
     fileList.updatedWith(key = fileName) {
       case Some(oldVal) =>
-        if (oldVal < newVal) {
-          Some(newVal)
+        if (oldVal._2 < newVal) {
+          Some((oldVal._2, newVal))
         } else {
           Some(oldVal)
         }
       case None =>
-        Some("")
+        Some(("", ""))
     }
   }
 
@@ -264,11 +264,11 @@ object SiteTimestamp {
    */
   private def inconsistencyDetection(
                                       log: Logger,
-                                      fileListP1: Map[String, String],
-                                      fileListP2: Map[String, String],
+                                      fileListP1: Map[String, (String, String)],
+                                      fileListP2: Map[String, (String, String)],
                                       debugMode: Boolean,
                                       writerIcd:PrintWriter
-                                    ): Map[String, String] = {
+                                    ): Map[String, (String, String)] = {
     var counter:Int = 0
 
     // Zip on the same fileName
@@ -282,16 +282,16 @@ object SiteTimestamp {
     val uniqueFilesP1 = fileListP1.filter(f => !fileListP2.contains(f._1))
     val uniqueFilesP2 = fileListP2.filter(f => !fileListP1.contains(f._1))
 
-    var fileList = Map[String, String]()
+    var fileList = Map[String, (String, String)]()
 
     for ((filename, time1, time2) <- zippedLists) {
       // Check whether one of the version vectors is dominant over the other.
-      if (time1.toLong > time2.toLong) { //TODO: Check if string comparison actually works for dates
+      if (time1._1.toLong > time2._1.toLong || time1._2.toLong > time2._2.toLong) {
         log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 > $time2")
         fileList = fileList + (filename -> time1)
 
         counter += 1
-      } else if (time1.toLong < time2.toLong) {
+      } else if (time1._1.toLong < time2._1.toLong || time1._2.toLong < time2._2.toLong) {
         log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 < $time2")
         fileList = fileList + (filename -> time2)
 
