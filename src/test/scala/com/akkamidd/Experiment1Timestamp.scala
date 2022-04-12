@@ -25,9 +25,9 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
       val numRuns = 10
       val numSites = 5
 
-      val spawningActorsTimeout = 500
-      val timeoutSplit = 500
-      val timeoutMerge = 500
+      val spawningActorsTimeout = 200
+      val timeoutSplit = 200
+      val timeoutMerge = 200
 
       for (i <- 1 to numRuns) {
         val random: Random.type = scala.util.Random
@@ -42,8 +42,8 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
 
         var partitionList: List[Set[String]] = UtilFuncsTimestamp.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
-        var thresholdSplit = 2
-        var thresholdMerge = 2
+        var thresholdSplit = 20
+        var thresholdMerge = 20
 
         val execFileName = "output/run" + i + "_experiment1timestamp_exec.txt"
         val icdFileName = "output/run" + i + "_experiment1timestamp_icd.txt"
