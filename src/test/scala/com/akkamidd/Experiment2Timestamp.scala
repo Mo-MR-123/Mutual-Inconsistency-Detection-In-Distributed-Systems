@@ -21,7 +21,7 @@ class Experiment2Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
         sb.toString
       }
 
-      val numRuns = 10
+      val numRuns = 1
       val numSites = 10
 
       val spawningActorsTimeout = 500
@@ -62,8 +62,8 @@ class Experiment2Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
             case x if x <= 10 =>
               val randomSite = listSiteNames(random.nextInt(numSites))
               val time = System.currentTimeMillis().toString
-              listFilenames = listFilenames :+ randomSite
               val fileName = randomString(5) + ".txt"
+              listFilenames = listFilenames :+ fileName
               UtilFuncsTimestamp.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
             // Update

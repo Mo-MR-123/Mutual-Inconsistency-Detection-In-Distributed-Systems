@@ -222,7 +222,7 @@ object SiteTimestamp {
     }
     else { // or if fileList already has the file
       var currentTimestamp = fileList(fileName)
-      if(currentTimestamp._1.toLong <= timestamp._1.toLong && currentTimestamp._2.toLong < timestamp._2.toLong){
+      if(currentTimestamp._2.toLong <= timestamp._2.toLong){
         currentTimestamp = timestamp
       }
 
@@ -285,21 +285,47 @@ object SiteTimestamp {
     var fileList = Map[String, (String, String)]()
 
     for ((filename, time1, time2) <- zippedLists) {
-      // Check whether one of the version vectors is dominant over the other.
-      if (time1._1.toLong > time2._1.toLong || time1._2.toLong > time2._2.toLong) {
-        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 > $time2")
-        fileList = fileList + (filename -> time1)
-
-        counter += 1
-      } else if (time1._1.toLong < time2._1.toLong || time1._2.toLong < time2._2.toLong) {
-        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 < $time2")
-        fileList = fileList + (filename -> time2)
-
-        counter += 1
-      } else {
+      // Check whether one of the timestamps is dominant over the other.
+      if(time1._1.toLong == time2._1.toLong && time1._2.toLong == time2._2.toLong) {
         log.info(s"[Consistency Detected] For File $filename -> no version conflict detected: $time1 <=> $time2")
         fileList = fileList + (filename -> time1)
+
+      } else if (time2._1.toLong == time1._2.toLong) { // (11, 30) and (10, 11)
+        log.info(s"[Inconsistency Detected] For File $filename -> Compatible version conflict detected: $time1 > $time2")
+        fileList = fileList + (filename -> time1)
+        counter += 1
+      } else if  (time1._1.toLong == time2._2.toLong) { // (10, 11) and (11, 30)
+        log.info(s"[Inconsistency Detected] For File $filename -> Compatible version conflict detected: $time1 < $time2")
+        fileList = fileList + (filename -> time2)
+        counter += 1
+
+      } else {
+        // We pick the version with the more updated timestamp regardless of the previous timestamps.
+        if (time1._2.toLong > time2._2.toLong) {
+          log.info(s"[Inconsistency Detected] For File $filename -> Incompatible version conflict detected: $time1 > $time2")
+          fileList = fileList + (filename -> time1)
+        } else {
+          log.info(s"[Inconsistency Detected] For File $filename -> Incompatible version conflict detected: $time1 < $time2")
+          fileList = fileList + (filename -> time2)
+        }
+        counter += 1
       }
+
+
+//      if (time1._1.toLong > time2._1.toLong || time1._2.toLong > time2._2.toLong) {
+//        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 > $time2")
+//        fileList = fileList + (filename -> time1)
+//
+//        counter += 1
+//      } else if (time1._1.toLong < time2._1.toLong || time1._2.toLong < time2._2.toLong) {
+//        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 < $time2")
+//        fileList = fileList + (filename -> time2)
+//
+//        counter += 1
+//      } else {
+//        log.info(s"[Consistency Detected] For File $filename -> no version conflict detected: $time1 <=> $time2")
+//        fileList = fileList + (filename -> time1)
+//      }
     }
 
     fileList = fileList ++ uniqueFilesP1 ++ uniqueFilesP2

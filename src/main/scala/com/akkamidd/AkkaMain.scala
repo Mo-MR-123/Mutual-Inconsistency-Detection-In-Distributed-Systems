@@ -7,7 +7,7 @@ import com.akkamidd.timestamp.MasterSiteTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.slf4j.Logger
 
-import java.io.{File, PrintWriter}
+import java.io.PrintWriter
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.io.StdIn
@@ -465,42 +465,3 @@ object UtilFuncs {
     logger.info(result.toString())
   }
 }
-
-//object Experiments {
-//  def experiment0(
-//                   debugMode: Boolean,
-//                   spawningActorsTimeout: Long,
-//                   timeoutSplit: Long,
-//                   timeoutMerge: Long
-//                 ): Unit =
-//  {
-//    val experimentStartMillis = System.currentTimeMillis()
-//
-//    val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode), "MasterSite")
-//
-//    var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSite, List("A", "B", "C", "D"), spawningActorsTimeout)
-//
-//    // upload files
-//    val time_a1 = System.currentTimeMillis().toString
-//    UtilFuncs.callUploadFile("A", time_a1, masterSite, "test.txt", partitionList)
-////    masterSite ! FileUploadMasterSite("A", time_a1, "test.txt", partitionList)
-//
-//    // split into {A,B} {C,D}
-//    partitionList = UtilFuncs.callSplit(masterSite, partitionList, Set("A", "B"), timeoutSplit, timeoutSplit)
-//
-//    UtilFuncs.callUpdateFile("A", ("A", time_a1), masterSite, partitionList)
-//    UtilFuncs.callUpdateFile("B", ("A", time_a1), masterSite, partitionList)
-//    UtilFuncs.callUpdateFile("C", ("A", time_a1), masterSite, partitionList)
-////    masterSite ! FileUpdateMasterSite("C", ("A", time_a1), partitionList)
-//
-//    //  merge into {A, B, C, D}
-//    partitionList = UtilFuncs.callMerge("A", "C", masterSite, partitionList, Set("A", "B", "C", "D"), timeoutMerge, timeoutMerge)
-//
-//    val experimentEndMillis = System.currentTimeMillis() - timeoutMerge*2 - timeoutSplit*2 - spawningActorsTimeout
-//
-//    masterSite.terminate()
-//
-//    println(s"[Experiment 0] Execution time in millis: ${experimentEndMillis - experimentStartMillis}")
-//  }
-//}
-

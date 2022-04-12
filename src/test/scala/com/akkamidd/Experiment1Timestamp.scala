@@ -35,7 +35,7 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
 
         val experimentStartMillis = System.currentTimeMillis
 
-        val masterSite: ActorSystem[MasterTimestampProtocol] = ActorSystem(MasterSiteTimestamp(debugMode = false), "MasterSiteTimestamp")
+        val masterSite: ActorSystem[MasterTimestampProtocol] = ActorSystem(MasterSiteTimestamp(debugMode = true), "MasterSiteTimestamp")
 
         val listSiteNames = List.range(0, numSites).map("Site" + _.toString)
         var listFilenames = List[String]()
@@ -63,8 +63,8 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
             case x if x <= 10 =>
               val randomSite = listSiteNames(random.nextInt(numSites))
               val time = System.currentTimeMillis().toString
-              listFilenames = listFilenames :+ randomSite
               val fileName = randomString(5) + ".txt"
+              listFilenames = listFilenames :+ fileName
               UtilFuncsTimestamp.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
             // Update
