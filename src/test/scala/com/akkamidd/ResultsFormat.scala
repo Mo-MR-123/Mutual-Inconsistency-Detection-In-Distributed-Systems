@@ -50,7 +50,7 @@ object ResultsFormat {
 
   def main(args: Array[String]): Unit = {
     val numberOfExperiments = 1
-    val numberOfRuns = 5
+    val numberOfRuns = 10
 
     printVersionVector(numberOfExperiments, numberOfRuns)
     printTimestamp(numberOfExperiments, numberOfRuns)

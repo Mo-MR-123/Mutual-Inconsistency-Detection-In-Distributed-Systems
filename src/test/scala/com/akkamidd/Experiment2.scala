@@ -92,7 +92,7 @@ class Experiment2 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
                val randomSite1 = listSiteNames(random.nextInt(numSites))
                val randomSite2 = listSiteNames(random.nextInt(numSites))
                val previousPartitionList = partitionList
-               partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, writerIcd)
+               partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, Option(writerIcd))
                if (!previousPartitionList.equals(partitionList)) {
                  thresholdMerge = thresholdMerge - 1
                }

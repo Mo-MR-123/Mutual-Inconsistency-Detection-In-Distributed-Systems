@@ -20,12 +20,12 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
             sb.toString
           }
 
-          val numRuns = 5
+          val numRuns = 10
           val numSites = 5
 
-          val spawningActorsTimeout = 500
-          val timeoutSplit = 500
-          val timeoutMerge = 500
+          val spawningActorsTimeout = 200
+          val timeoutSplit = 200
+          val timeoutMerge = 200
 
 
           val randomNumberExperiment: Random.type = scala.util.Random
@@ -43,8 +43,8 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
             var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
-            var thresholdSplit = 5
-            var thresholdMerge = 5
+            var thresholdSplit = 20
+            var thresholdMerge = 20
 
             val execFileName = "output/run" + i + "_experiment1_exec.txt"
             val icdFileName = "output/run" + i + "_experiment1_icd.txt"
@@ -94,7 +94,7 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
                     val randomSite1 = listSiteNames(random.nextInt(numSites))
                     val randomSite2 = listSiteNames(random.nextInt(numSites))
                     val previousPartitionList = partitionList
-                    partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, writerIcd)
+                    partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, Option(writerIcd))
                     if (!previousPartitionList.equals(partitionList)) {
                       thresholdMerge = thresholdMerge - 1
                     }
