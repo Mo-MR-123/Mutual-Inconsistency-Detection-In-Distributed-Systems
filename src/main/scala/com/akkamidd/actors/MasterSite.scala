@@ -29,7 +29,7 @@ object MasterSite {
                           fromSiteMerge: String,
                           toSiteMerge: String,
                           partitionList: List[Set[String]],
-                          writerIcd: PrintWriter
+                          writerIcd: Option[PrintWriter]
                         ) extends MasterSiteProtocol
   final case class SpawnSite(siteName: String) extends MasterSiteProtocol
 

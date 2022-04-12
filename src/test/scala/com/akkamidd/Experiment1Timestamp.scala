@@ -52,7 +52,7 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
         execFile.createNewFile()
         icdFile.createNewFile()
         val writerExec = new PrintWriter(new File(execFileName))
-        val writerIcd = new PrintWriter(new File(icdFileName))
+        val writerIcd = Option(new PrintWriter(new File(icdFileName)))
 
         // Can never have more merges than splits so only needs to check whether the merge threshold has been reached.
         while (thresholdMerge > 0) {
@@ -108,7 +108,7 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
 
         writerExec.write(estimatedTime.toString)
         writerExec.close()
-        writerIcd.close()
+        writerIcd.get.close()
       }
     }
   }

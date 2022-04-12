@@ -38,13 +38,13 @@ object SiteTimestamp {
                            to: ActorRef[TimestampProtocol],
                            parent: ActorRef[MasterTimestampProtocol],
                            partitionSet: Set[ActorRef[TimestampProtocol]],
-                           writerIcd:PrintWriter
+                           writerIcd: Option[PrintWriter]
                          ) extends TimestampProtocol
   final case class CheckInconsistency(
                                        fileList: Map[String, (String, String)],
                                        parent: ActorRef[MasterTimestampProtocol],
                                        partitionSet: Set[ActorRef[TimestampProtocol]],
-                                       writerIcd:PrintWriter
+                                       writerIcd: Option[PrintWriter]
                                      ) extends TimestampProtocol
   final case class ReplaceFileList(
                                     fileListToReplace: Map[String, (String, String)]
@@ -267,7 +267,7 @@ object SiteTimestamp {
                                       fileListP1: Map[String, (String, String)],
                                       fileListP2: Map[String, (String, String)],
                                       debugMode: Boolean,
-                                      writerIcd:PrintWriter
+                                      writerIcd: Option[PrintWriter]
                                     ): Map[String, (String, String)] = {
     var counter:Int = 0
 
@@ -308,7 +308,12 @@ object SiteTimestamp {
       log.info(s"[LOGGER ID] $fileList. FL1 $fileListP1  FL2 $fileListP2")
     }
 
-    writerIcd.println(counter.toString)
+    writerIcd match {
+      case Some(pwd) =>
+        pwd.println(counter.toString)
+      case None =>
+    }
+
     fileList
   }
 

@@ -6,6 +6,7 @@ import com.akkamidd.actors.MasterSite.Broadcast
 import org.slf4j.Logger
 
 import java.io.PrintWriter
+import scala.reflect.Manifest.Nothing
 
 
 object Site {
@@ -40,13 +41,13 @@ object Site {
                            to: ActorRef[SiteProtocol],
                            parent: ActorRef[MasterSite.MasterSiteProtocol],
                            partitionSet: Set[ActorRef[SiteProtocol]],
-                           writerIcd:PrintWriter
+                           writerIcd: Option[PrintWriter]
                          ) extends SiteProtocol
   final case class CheckInconsistency(
                            fileList: Map[(String, String), Map[String, Int]],
                            parent: ActorRef[MasterSite.MasterSiteProtocol],
                            partitionSet: Set[ActorRef[SiteProtocol]],
-                           writerIcd:PrintWriter
+                           writerIcd: Option[PrintWriter]
                          ) extends SiteProtocol
   final case class ReplaceFileList(
                                     fileListToReplace: Map[(String, String), Map[String, Int]]
@@ -163,7 +164,7 @@ object Site {
             Behaviors.unhandled
           }
 
-        case Merged(to, parent, partitionSet,writerIcd) =>
+        case Merged(to, parent, partitionSet, writerIcd) =>
           if (debugMode) {
             context.log.info(s"[Merged] sending fileList of site ${context.self.path.name} to site ${to.path.name}. FileList sent: $fileList")
           }
@@ -249,9 +250,9 @@ object Site {
                                       fileListP2: Map[(String, String), Map[String, Int]],
                                       partitionSet: Set[ActorRef[SiteProtocol]],
                                       debugMode: Boolean,
-                                      writerIcd: PrintWriter
+                                      writerIcd: Option[PrintWriter]
                                     ): Map[(String, String), Map[String, Int]] = {
-    var counter:Int = 0
+    var counter: Int = 0
 
     // Zip on the same origin pointers
     val zippedLists = for {
@@ -332,7 +333,12 @@ object Site {
       log.info(s"[LOGGER ID] $finalFileList. FL1 $fileListP1  FL2 $fileListP2 PartitionSet ${partitionSet.map(_.path.name)}")
     }
 
-    writerIcd.println(counter.toString)
+    writerIcd match {
+      case Some(pw) =>
+        pw.println(counter.toString)
+      case None =>
+    }
+
     finalFileList
   }
 

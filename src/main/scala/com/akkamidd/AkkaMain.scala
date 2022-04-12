@@ -16,10 +16,9 @@ object AkkaMain extends App {
   val numSiteActors = args(0).toLong
   val siteActorNames = List.range(0, numSiteActors).map("Site"+_.toString)
 
-  val masterSystem = ActorSystem(MasterSite(debugMode = false), "MasterSite")
+  val masterSystem = ActorSystem(MasterSite(debugMode = true), "MasterSite")
   var partitionList = UtilFuncs.spawnSites(masterSystem, siteActorNames, 3000)
-  val icdFileName = "output/sbt_command.txt"
-  val writerIcd = new PrintWriter(new File(icdFileName))
+  val writerIcd: Option[PrintWriter] = None
 
   println(s"$numSiteActors Site actors spawned successfully!")
   println(s"Site Actor Names: $siteActorNames")
@@ -60,9 +59,9 @@ object AkkaMain extends App {
 
         if (mergeCommand.length == 3) {
           val timeoutValue = mergeCommand(2).toLong
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue,writerIcd)
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, timeoutValue, timeoutValue, writerIcd)
         } else {
-          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000,writerIcd)
+          partitionList = UtilFuncs.callMerge(siteFrom, siteTo, masterSystem, partitionList, 1000, 1000, writerIcd)
         }
 
       case "quit" =>
@@ -146,13 +145,15 @@ object UtilFuncsTimestamp {
                  sitesPartitionedList: List[Set[String]],
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long,
-                 writerIcd: PrintWriter
+                 writerIcd: Option[PrintWriter]
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
 
     val newPartitionList = mergePartition(sitesPartitionedList, siteNameFrom, siteNameTo)
-    masterSystem ! MasterSiteTimestamp.Merge(siteNameFrom, siteNameTo, newPartitionList, writerIcd)
+    if(!newPartitionList.equals(sitesPartitionedList)){
+      masterSystem ! MasterSiteTimestamp.Merge(siteNameFrom, siteNameTo, newPartitionList, writerIcd)
+    }
 
     Thread.sleep(timeoutAfterExec)
 
@@ -340,7 +341,7 @@ object UtilFuncs {
                  sitesPartitionedList: List[Set[String]],
                  timeoutBeforeExec: Long,
                  timeoutAfterExec: Long,
-                 writerIcd: PrintWriter
+                 writerIcd: Option[PrintWriter]
                ): List[Set[String]] =
   {
     Thread.sleep(timeoutBeforeExec)
@@ -382,7 +383,7 @@ object UtilFuncs {
                       siteAtWhichSplit: String
                     ): List[Set[String]] =
   {
-    var newPartitionList:List[Set[String]] = sitesPartitionedList
+    var newPartitionList: List[Set[String]] = sitesPartitionedList
 
     for (set <- newPartitionList){
       if (set.contains(siteAtWhichSplit)) {

@@ -32,7 +32,7 @@ object MasterSiteTimestamp {
                           fromSiteMerge: String,
                           toSiteMerge: String,
                           partitionList: List[Set[String]],
-                          writerIcd: PrintWriter
+                          writerIcd: Option[PrintWriter]
                         ) extends MasterTimestampProtocol
   final case class SpawnSite(siteName: String) extends MasterTimestampProtocol
 
