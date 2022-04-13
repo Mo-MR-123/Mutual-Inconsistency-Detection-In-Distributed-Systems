@@ -11,5 +11,3 @@ target/
 .bloop
 
 .bsp
-experiments/results
-experiments/csv_format
