@@ -24,13 +24,15 @@ class Experiment3 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       val numRuns = 10
       val numSites = 15
 
-      val spawningActorsTimeout = 500
-      val timeoutSplit = 500
-      val timeoutMerge = 500
+      val spawningActorsTimeout = 200
+      val timeoutSplit = 200
+      val timeoutMerge = 200
 
+      val randomNumberExperiment: Random.type = scala.util.Random
+      randomNumberExperiment.setSeed(50)
       for (i <- 1 to numRuns) {
         val random: Random.type = scala.util.Random
-        random.setSeed(50)
+        random.setSeed(randomNumberExperiment.nextInt())
 
         val experimentStartMillis = System.currentTimeMillis
 
@@ -44,8 +46,8 @@ class Experiment3 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         var thresholdSplit = 6
         var thresholdMerge = 4
 
-        val execFileName = "output/run" + i + "_experiment3_exec.txt"
-        val icdFileName = "output/run" + i + "_experiment3_icd.txt"
+        val execFileName = "experiments/results/run" + i + "_experiment3_exec.txt"
+        val icdFileName = "experiments/results/run" + i + "_experiment3_icd.txt"
         val execFile = new File(execFileName)
         val icdFile = new File(icdFileName)
         execFile.createNewFile()

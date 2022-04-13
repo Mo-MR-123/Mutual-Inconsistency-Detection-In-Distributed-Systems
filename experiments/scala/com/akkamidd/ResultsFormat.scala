@@ -15,8 +15,8 @@ object ResultsFormat {
       var execSum: Int = 0
 
       for (i <- 1 to numberOfRuns) {
-        val icdCount = intCount("output/run" + i + "_experiment" + j + "_icd.txt")
-        val execCount = intCount("output/run" + i + "_experiment" + j + "_exec.txt")
+        val icdCount = intCount("experiments/results/run" + i + "_experiment" + j + "_icd.txt")
+        val execCount = intCount("experiments/results/run" + i + "_experiment" + j + "_exec.txt")
         icdSum += icdCount
         execSum += execCount
         print(s"Run $i - Execution time: $execCount, icd count: $icdCount \n")
@@ -35,8 +35,8 @@ object ResultsFormat {
       var execSum: Int = 0
 
       for (i <- 1 to numberOfRuns) {
-        val icdCount = intCount("output/run" + i + "_experiment" + j + "timestamp_icd.txt")
-        val execCount = intCount("output/run" + i + "_experiment" + j + "timestamp_exec.txt")
+        val icdCount = intCount("experiments/results/run" + i + "_experiment" + j + "timestamp_icd.txt")
+        val execCount = intCount("experiments/results/run" + i + "_experiment" + j + "timestamp_exec.txt")
         icdSum += icdCount
         execSum += execCount
         print(s"Run $i - Execution time: $execCount, icd count: $icdCount \n")

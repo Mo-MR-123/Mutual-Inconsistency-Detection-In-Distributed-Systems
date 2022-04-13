@@ -11,4 +11,4 @@ target/
 .bloop
 
 .bsp
-output
+experiments/results

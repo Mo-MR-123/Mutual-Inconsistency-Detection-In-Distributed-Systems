@@ -46,8 +46,8 @@ class Experiment1 extends ScalaTestWithActorTestKit with AnyWordSpecLike {
             var thresholdSplit = 20
             var thresholdMerge = 20
 
-            val execFileName = "output/run" + i + "_experiment1_exec.txt"
-            val icdFileName = "output/run" + i + "_experiment1_icd.txt"
+            val execFileName = "experiments/results/run" + i + "_experiment1_exec.txt"
+            val icdFileName = "experiments/results/run" + i + "_experiment1_icd.txt"
             val execFile = new File(execFileName)
             val icdFile = new File(icdFileName)
             execFile.createNewFile()
