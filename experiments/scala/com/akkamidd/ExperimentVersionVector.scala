@@ -33,7 +33,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
 
           val randomNumberSites: Random.type = scala.util.Random
           randomNumberSites.setSeed(42)
-          for (siteIdx <- 1 to numSites) {
+          for (siteIdx <- 2 to numSites) {
             val randomNumberExperiment: Random.type = scala.util.Random
             randomNumberExperiment.setSeed(randomNumberSites.nextInt())
             for (runIdx <- 1 to numRuns) {
@@ -44,7 +44,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
 
               val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode = false), "MasterSite")
 
-              val listSiteNames = List.range(0, numSites).map("Site" + _.toString)
+              val listSiteNames = List.range(0, siteIdx).map("Site" + _.toString)
               var listOriginPointers = Map[String, String]()
 
               var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
@@ -68,7 +68,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                 randomValue match {
                   // Upload
                   case x if x <= 10 =>
-                    val randomSite = listSiteNames(random.nextInt(numSites))
+                    val randomSite = listSiteNames(random.nextInt(siteIdx))
                     val time = System.currentTimeMillis().toString
                     listOriginPointers = listOriginPointers + (randomSite -> time)
                     val fileName = randomString(5) + ".txt"
@@ -77,7 +77,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                   // Update
                   case x if x > 10 && x <= 50 =>
                     if (listOriginPointers.nonEmpty) {
-                      val randomSite = listSiteNames(random.nextInt(numSites))
+                      val randomSite = listSiteNames(random.nextInt(siteIdx))
                       val randomFileIndex = random.nextInt(listOriginPointers.size)
                       val tuple = listOriginPointers.toList(randomFileIndex)
                       UtilFuncs.callUpdateFile(randomSite, tuple, masterSite, partitionList)
@@ -86,7 +86,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                   // Split
                   case x if x > 50 && x <= 75 =>
                     if (thresholdSplit != 0) {
-                      val randomSite = listSiteNames(random.nextInt(numSites))
+                      val randomSite = listSiteNames(random.nextInt(siteIdx))
                       val previousPartitionList = partitionList
                       partitionList = UtilFuncs.callSplit(masterSite, partitionList, randomSite, timeoutSplit, timeoutSplit)
                       if (!previousPartitionList.equals(partitionList)) {
@@ -97,8 +97,8 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                   // Merge
                   case x if x > 75 && x < 100 =>
                     if (thresholdMerge != 0) {
-                      val randomSite1 = listSiteNames(random.nextInt(numSites))
-                      val randomSite2 = listSiteNames(random.nextInt(numSites))
+                      val randomSite1 = listSiteNames(random.nextInt(siteIdx))
+                      val randomSite2 = listSiteNames(random.nextInt(siteIdx))
                       val previousPartitionList = partitionList
                       partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, Option(writerIcd))
                       if (!previousPartitionList.equals(partitionList)) {
