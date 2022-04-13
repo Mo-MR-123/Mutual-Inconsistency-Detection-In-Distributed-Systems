@@ -1,5 +1,6 @@
 package com.akkamidd
 import java.io.{File, PrintWriter}
+import java.nio.file.{Files, Paths}
 import scala.io.Source
 
 object ResultsFormat {
@@ -38,6 +39,7 @@ object ResultsFormat {
   }
 
   def main(args: Array[String]): Unit = {
+    Files.createDirectories(Paths.get("experiments/csv_format"))
     val numberOfSites = 20
     val numberOfRuns = 20
 
