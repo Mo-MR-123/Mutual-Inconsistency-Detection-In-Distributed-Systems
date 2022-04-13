@@ -21,7 +21,7 @@ object ResultsFormat {
       }
     }
     writer.close()
-    print("Results have been formatted for Version Vector, see file: version_vector_formatted.csv")
+    print("Results have been formatted for Version Vector, see file: version_vector_formatted.csv\n")
   }
 
   def printTimestamp(numberOfSites: Int, numberOfRuns: Int): Unit = {
@@ -44,6 +44,6 @@ object ResultsFormat {
     val numberOfRuns = 20
 
     printVersionVector(numberOfSites, numberOfRuns)
-//    printTimestamp(numberOfSites, numberOfRuns)
+    printTimestamp(numberOfSites, numberOfRuns)
   }
 }
