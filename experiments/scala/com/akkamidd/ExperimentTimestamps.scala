@@ -2,14 +2,14 @@ package com.akkamidd
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorSystem
-import com.akkamidd.actors.MasterSite
-import com.akkamidd.actors.MasterSite.MasterSiteProtocol
+import com.akkamidd.timestamp.MasterSiteTimestamp
+import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
-class Experiment_version_vector extends ScalaTestWithActorTestKit with AnyWordSpecLike {
+class ExperimentTimestamps extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   "Experiment" must {
     "Detect Inconsistency" in {
           def randomString(length: Int) = {
@@ -39,24 +39,24 @@ class Experiment_version_vector extends ScalaTestWithActorTestKit with AnyWordSp
 
               val experimentStartMillis = System.currentTimeMillis
 
-              val masterSite: ActorSystem[MasterSiteProtocol] = ActorSystem(MasterSite(debugMode = false), "MasterSite")
+              val masterSite: ActorSystem[MasterTimestampProtocol] = ActorSystem(MasterSiteTimestamp(debugMode = false), "MasterSiteTimestamp")
 
               val listSiteNames = List.range(0, numSites).map("Site" + _.toString)
-              var listOriginPointers = Map[String, String]()
+              var listFilenames = List[String]()
 
-              var partitionList: List[Set[String]] = UtilFuncs.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
+              var partitionList: List[Set[String]] = UtilFuncsTimestamp.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
               var thresholdSplit = 20
               var thresholdMerge = 20
 
-              val execFileName = "experiments/results/run_" + runIdx + "_version_vector_sites_" + siteIdx + "_exec.txt"
-              val icdFileName = "experiments/results/run_" + runIdx + "_version_vector_sites_" + siteIdx + "_icd.txt"
+              val execFileName = "experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_exec.txt"
+              val icdFileName = "experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_icd.txt"
               val execFile = new File(execFileName)
               val icdFile = new File(icdFileName)
               execFile.createNewFile()
               icdFile.createNewFile()
-              val writerExec = new PrintWriter(execFile)
-              val writerIcd = new PrintWriter(icdFile)
+              val writerExec = new PrintWriter(new File(execFileName))
+              val writerIcd = Option(new PrintWriter(new File(icdFileName)))
 
               // Can never have more merges than splits so only needs to check whether the merge threshold has been reached.
               while (thresholdMerge > 0) {
@@ -67,17 +67,17 @@ class Experiment_version_vector extends ScalaTestWithActorTestKit with AnyWordSp
                   case x if x <= 10 =>
                     val randomSite = listSiteNames(random.nextInt(numSites))
                     val time = System.currentTimeMillis().toString
-                    listOriginPointers = listOriginPointers + (randomSite -> time)
                     val fileName = randomString(5) + ".txt"
-                    UtilFuncs.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
+                    listFilenames = listFilenames :+ fileName
+                    UtilFuncsTimestamp.callUploadFile(randomSite, time, masterSite, fileName, partitionList)
 
                   // Update
                   case x if x > 10 && x <= 50 =>
-                    if (listOriginPointers.nonEmpty) {
+                    if (listFilenames.nonEmpty) {
                       val randomSite = listSiteNames(random.nextInt(numSites))
-                      val randomFileIndex = random.nextInt(listOriginPointers.size)
-                      val tuple = listOriginPointers.toList(randomFileIndex)
-                      UtilFuncs.callUpdateFile(randomSite, tuple, masterSite, partitionList)
+                      val randomFileIndex = random.nextInt(listFilenames.size)
+                      val fileName = listFilenames(randomFileIndex)
+                      UtilFuncsTimestamp.callUpdateFile(randomSite, fileName, masterSite, partitionList)
                     }
 
                   // Split
@@ -85,7 +85,7 @@ class Experiment_version_vector extends ScalaTestWithActorTestKit with AnyWordSp
                     if (thresholdSplit != 0) {
                       val randomSite = listSiteNames(random.nextInt(numSites))
                       val previousPartitionList = partitionList
-                      partitionList = UtilFuncs.callSplit(masterSite, partitionList, randomSite, timeoutSplit, timeoutSplit)
+                      partitionList = UtilFuncsTimestamp.callSplit(masterSite, partitionList, randomSite, timeoutSplit, timeoutSplit)
                       if (!previousPartitionList.equals(partitionList)) {
                         thresholdSplit = thresholdSplit - 1
                       }
@@ -97,7 +97,7 @@ class Experiment_version_vector extends ScalaTestWithActorTestKit with AnyWordSp
                       val randomSite1 = listSiteNames(random.nextInt(numSites))
                       val randomSite2 = listSiteNames(random.nextInt(numSites))
                       val previousPartitionList = partitionList
-                      partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, Option(writerIcd))
+                      partitionList = UtilFuncsTimestamp.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, writerIcd)
                       if (!previousPartitionList.equals(partitionList)) {
                         thresholdMerge = thresholdMerge - 1
                       }
@@ -105,14 +105,14 @@ class Experiment_version_vector extends ScalaTestWithActorTestKit with AnyWordSp
                 }
               }
 
-              UtilFuncs.terminateSystem(masterSite)
+              UtilFuncsTimestamp.terminateSystem(masterSite)
 
               val estimatedTime = System.currentTimeMillis - experimentStartMillis
-              masterSite.log.info("Experiment Version Vector ended - time: " + estimatedTime.toString)
+              masterSite.log.info("Experiment Timestamp (number of sites: " + siteIdx + ", run: " + runIdx + ") ended - time: " + estimatedTime.toString)
 
               writerExec.write(estimatedTime.toString)
               writerExec.close()
-              writerIcd.close()
+              writerIcd.get.close()
             }
           }
         }
