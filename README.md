@@ -8,7 +8,7 @@
 
 [unfinished]
 
-## Run
+## Build
 
 Use the following command to build the docker image:
 
@@ -16,41 +16,32 @@ Use the following command to build the docker image:
 docker build -t group-7-midd .
 ```
 
-Run/Create sbt shell in the created image:
+### Run customized experiments
+
+You can choose to run the akka system with a sequence of operations defined by yourself, by simply passing the
+arguments in the right format in sbt shell. Steps and examples are given below:
+
+Run/Create sbt shell from the created image:
 
 ```
 docker run -it --rm group-7-midd ./sbt
 ```
 
-[unfinished]
-
-### Run customized experiments
-
-You can choose to run the akka system with a sequence of operations defined by yourself, by simply passing the
-arguments to sbt in order. Examples are given below:
-
-start the sbt console with
-
-```
-./sbt
-```
-
-create 24 sites in the distributed system, site number 0~23
+Create and run 24 sites in the distributed system using `run` command in sbt shell. This created 10 sites with the names Site0, Site1, ..., Site9.
 
 ```
 > run 24
 ```
 
-upload file `test.txt` to site 20:
+Upload a file called `test.txt` to site 5:
 
 ```
-> upload-20-test.txt
+> upload-Site5-test.txt
 ```
 
-the timestamp will be printed in the console and you can use it to update the file later
+The origin pointer will be printed in the console so that it can be copy and pasted when the update command needs to be issued.
 
-split the siteList into two partitions at site 10, with timeout setting to 1000ms (optional argument), to give enough time to make sure everything
-is done.
+split the siteList into two partitions at site 10, with timeout set to 1000ms (optional argument), to give enough time to make sure the file list in each site is consistent. The thread is slept using the timeout value before and after the split in order to make sure that all the pending messages are done executing.
 **List(Set(0, 1,.... 23)) ---> List(Set(0, 1,.... 10), Set(11, 12, ... 24))**
 
 ```
