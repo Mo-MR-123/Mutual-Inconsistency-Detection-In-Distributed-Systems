@@ -7,6 +7,7 @@ import com.akkamidd.actors.MasterSite.MasterSiteProtocol
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.io.{File, PrintWriter}
+import java.nio.file.{Files, Paths}
 import scala.util.Random
 
 class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpecLike {
@@ -20,6 +21,8 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
             }
             sb.toString
           }
+
+          Files.createDirectories(Paths.get("experiments/results"))
 
           val numRuns = 20
           val numSites = 20

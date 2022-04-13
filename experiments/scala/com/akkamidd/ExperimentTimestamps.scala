@@ -6,6 +6,7 @@ import com.akkamidd.timestamp.MasterSiteTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import java.nio.file.{Files, Paths}
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
@@ -20,6 +21,8 @@ class ExperimentTimestamps extends ScalaTestWithActorTestKit with AnyWordSpecLik
             }
             sb.toString
           }
+
+          Files.createDirectories(Paths.get("experiments/results"))
 
           val numRuns = 20
           val numSites = 20
