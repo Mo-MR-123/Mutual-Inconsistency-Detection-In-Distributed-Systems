@@ -50,8 +50,8 @@ class Experiment_timestamps extends ScalaTestWithActorTestKit with AnyWordSpecLi
               var thresholdSplit = 20
               var thresholdMerge = 20
 
-              val execFileName = "experiments/results/run" + runIdx + "_timestamps_sites_" + siteIdx + "_exec_.txt"
-              val icdFileName = "experiments/results/run" + runIdx + "_timestamps_sites_" + siteIdx + "_icd.txt"
+              val execFileName = "experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_exec.txt"
+              val icdFileName = "experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_icd.txt"
               val execFile = new File(execFileName)
               val icdFile = new File(icdFileName)
               execFile.createNewFile()

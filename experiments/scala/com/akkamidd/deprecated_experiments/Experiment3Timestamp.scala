@@ -1,7 +1,8 @@
-package com.akkamidd
+package com.akkamidd.deprecated_experiments
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorSystem
+import com.akkamidd.UtilFuncsTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -9,10 +10,9 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
-class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLike  {
-  "Experiment 1 Timestamp" must {
+class Experiment3Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLike  {
+  "Experiment 3 Timestamp" must {
     "Detect Inconsistency" in {
-
       def randomString(length: Int) = {
         val r = new scala.util.Random
         val sb = new StringBuilder
@@ -23,12 +23,11 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
       }
 
       val numRuns = 10
-      val numSites = 5
+      val numSites = 15
 
       val spawningActorsTimeout = 200
       val timeoutSplit = 200
       val timeoutMerge = 200
-
 
       val randomNumberExperiment: Random.type = scala.util.Random
       randomNumberExperiment.setSeed(50)
@@ -38,18 +37,18 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
 
         val experimentStartMillis = System.currentTimeMillis
 
-        val masterSite: ActorSystem[MasterTimestampProtocol] = ActorSystem(MasterSiteTimestamp(debugMode = true), "MasterSiteTimestamp")
+        val masterSite: ActorSystem[MasterTimestampProtocol] = ActorSystem(MasterSiteTimestamp(debugMode = false), "MasterSiteTimestamp")
 
         val listSiteNames = List.range(0, numSites).map("Site" + _.toString)
         var listFilenames = List[String]()
 
         var partitionList: List[Set[String]] = UtilFuncsTimestamp.spawnSites(masterSystem = masterSite, siteNameList = listSiteNames, timeout = spawningActorsTimeout)
 
-        var thresholdSplit = 20
-        var thresholdMerge = 20
+        var thresholdSplit = 6
+        var thresholdMerge = 4
 
-        val execFileName = "experiments/results/run" + i + "_experiment1timestamp_exec.txt"
-        val icdFileName = "experiments/results/run" + i + "_experiment1timestamp_icd.txt"
+        val execFileName = "experiments/results/run" + i + "_experiment3timestamp_exec.txt"
+        val icdFileName = "experiments/results/run" + i + "_experiment3timestamp_icd.txt"
         val execFile = new File(execFileName)
         val icdFile = new File(icdFileName)
         execFile.createNewFile()
@@ -107,7 +106,7 @@ class Experiment1Timestamp extends ScalaTestWithActorTestKit with AnyWordSpecLik
         UtilFuncsTimestamp.terminateSystem(masterSite)
 
         val estimatedTime = System.currentTimeMillis - experimentStartMillis
-        masterSite.log.info("Experiment 2 Timestamp ended - time: " + estimatedTime.toString)
+        masterSite.log.info("Experiment 3 Timestamp ended - time: " + estimatedTime.toString)
 
         writerExec.write(estimatedTime.toString)
         writerExec.close()

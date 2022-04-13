@@ -1,7 +1,8 @@
-package com.akkamidd
+package com.akkamidd.deprecated_experiments
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorSystem
+import com.akkamidd.UtilFuncsTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp
 import com.akkamidd.timestamp.MasterSiteTimestamp.MasterTimestampProtocol
 import org.scalatest.wordspec.AnyWordSpecLike

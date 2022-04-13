@@ -1,10 +1,12 @@
-package com.akkamidd
+package com.akkamidd.deprecated_experiments
+
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorSystem
-
+import com.akkamidd.UtilFuncs
 import com.akkamidd.actors.MasterSite
 import com.akkamidd.actors.MasterSite.MasterSiteProtocol
 import org.scalatest.wordspec.AnyWordSpecLike
+
 import java.io.{File, PrintWriter}
 import scala.util.Random
 

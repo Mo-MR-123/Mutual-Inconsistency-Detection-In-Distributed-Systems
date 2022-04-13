@@ -1,4 +1,5 @@
 package com.akkamidd
+import java.io.{File, PrintWriter}
 import scala.io.Source
 
 object ResultsFormat {
@@ -8,51 +9,39 @@ object ResultsFormat {
     count
   }
 
-  def printVersionVector(numberOfExperiments: Int, numberOfRuns: Int): Unit = {
-    for (j <- 1 to numberOfExperiments) {
-      print("Experiment" + j + ":\n")
-      var icdSum: Int = 0
-      var execSum: Int = 0
-
-      for (i <- 1 to numberOfRuns) {
-        val icdCount = intCount("experiments/results/run" + i + "_experiment" + j + "_icd.txt")
-        val execCount = intCount("experiments/results/run" + i + "_experiment" + j + "_exec.txt")
-        icdSum += icdCount
-        execSum += execCount
-        print(s"Run $i - Execution time: $execCount, icd count: $icdCount \n")
+  def printVersionVector(numberOfSites: Int, numberOfRuns: Int): Unit = {
+    val writer = new PrintWriter(new File("experiments/csv_format/version_vector_formatted.csv"))
+    writer.write("sites,run,icd,exec\n")
+    for (siteIdx <- 1 to numberOfSites) {
+      for (runIdx <- 1 to numberOfRuns) {
+        val icdCount = intCount("experiments/results/run_" + runIdx + "_version_vector_sites_" + siteIdx + "_icd.txt")
+        val execCount = intCount("experiments/results/run_" + runIdx + "_version_vector_sites_" + siteIdx + "_exec.txt")
+        writer.write(s"$siteIdx,$runIdx,$icdCount,$execCount\n")
       }
-
-      val icdAverage = icdSum / numberOfRuns
-      val execAverage = execSum / numberOfRuns
-      print(s"Experiment $j - Average execution time: $execAverage, icd average count: $icdAverage \n")
     }
+    writer.close()
+    print("Results have been formatted for Version Vector, see file: version_vector_formatted.csv")
   }
 
-  def printTimestamp(numberOfExperiments: Int, numberOfRuns: Int): Unit = {
-    for (j <- 1 to numberOfExperiments) {
-      print("Experiment" + j + "Timestamp:\n")
-      var icdSum: Int = 0
-      var execSum: Int = 0
-
-      for (i <- 1 to numberOfRuns) {
-        val icdCount = intCount("experiments/results/run" + i + "_experiment" + j + "timestamp_icd.txt")
-        val execCount = intCount("experiments/results/run" + i + "_experiment" + j + "timestamp_exec.txt")
-        icdSum += icdCount
-        execSum += execCount
-        print(s"Run $i - Execution time: $execCount, icd count: $icdCount \n")
+  def printTimestamp(numberOfSites: Int, numberOfRuns: Int): Unit = {
+    val writer = new PrintWriter(new File("experiments/csv_format/timestamp_formatted.csv"))
+    writer.write("sites,run,icd,exec\n")
+    for (siteIdx <- 1 to numberOfSites) {
+      for (runIdx <- 1 to numberOfRuns) {
+        val icdCount = intCount("experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_icd.txt")
+        val execCount = intCount("experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_exec.txt")
+        writer.write(s"$siteIdx,$runIdx,$icdCount,$execCount\n")
       }
-
-      val icdAverage = icdSum / numberOfRuns
-      val execAverage = execSum / numberOfRuns
-      print(s"Experiment $j Timestamp - Average execution time: $execAverage, icd average count: $icdAverage \n")
     }
+    writer.close()
+    print("Results have been formatted for Timestamps, see file: timestamp_formatted.csv")
   }
 
   def main(args: Array[String]): Unit = {
-    val numberOfExperiments = 1
-    val numberOfRuns = 10
+    val numberOfSites = 20
+    val numberOfRuns = 20
 
-    printVersionVector(numberOfExperiments, numberOfRuns)
-    printTimestamp(numberOfExperiments, numberOfRuns)
+    printVersionVector(numberOfSites, numberOfRuns)
+    printTimestamp(numberOfSites, numberOfRuns)
   }
 }
