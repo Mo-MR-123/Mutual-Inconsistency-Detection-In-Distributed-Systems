@@ -27,7 +27,7 @@ Run/Create sbt shell from the created image:
 docker run -it --rm group-7-midd ./sbt
 ```
 
-Create and run 24 sites in the distributed system using `run` command in sbt shell. This created 10 sites with the names Site0, Site1, ..., Site9.
+Create and run 24 sites in the distributed system using `run` command in sbt shell. This creates 24 sites with the names Site0, Site1, ..., Site23.
 
 ```
 > run 24
