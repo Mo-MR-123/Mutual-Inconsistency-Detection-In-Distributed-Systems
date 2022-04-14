@@ -133,7 +133,7 @@ Use the following command to run all the experiments at once.
 docker run -it --rm group-7-midd ./sbt test
 ```
 
-There are two experiments: `ExperimentTimestamps` and `ExperimentVersionVector`. For both of the experiments, the values `spawningActorsTimeout = 100ms`, `timeoutSplit = 100ms`, `timeoutMerge = 100ms`, `thresholdSplit = 20` and `thresholdMerge = 20` are constants and the only changing variable is the `numSites` value which indicates the sites that need to be spawned. 
+There are two experiments: `ExperimentTimestamps` and `ExperimentVersionVector`. For both of the experiments, the values `spawningActorsTimeout = 100ms`, `timeoutSplit = 100ms`, `timeoutMerge = 100ms`, `thresholdSplit = 20` and `thresholdMerge = 20` are pre-defined constants and the only changing variable is the `numSites` value which indicates the sites that need to be spawned. 
 
 `spawningActorsTimeout` indicates the timeout that is used for waiting for all the sites to be spawned to ensure all sites are spawned for all consequent operations. `timeoutSplit` and `timeoutMerge` are used for the timeouts for before and after a split and merge respectively. There are two counters, one that keeps track of how many splits have occurred and one that keeps track of how many merges have occurred during a run. Each time a merge or a split occurs, the corresponding counter is incremented. The `thresholdSplit` and `thresholdMerge` values are used to stop a run of an experiment when those values are reached by one of the aforementioned counters. This is done so that a run does not go on indefinitely.
 
