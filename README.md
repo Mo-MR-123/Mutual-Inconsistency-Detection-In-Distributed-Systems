@@ -88,7 +88,7 @@ Results in the following partition list:
 > if the given `siteName` is already the largest in the current partition, or it is not a valid
 > siteName in the current system, nothing will happen.
 
-Update the file with origin pointer `(siteName,timestamp)` e.g. (12,90300) in site 12 can be done using the following command:
+Update the file with origin pointer `(siteName,timestamp)` e.g. (Site12,90300) in site 12 can be done using the following command:
 
 ```
 > update-Site12-(Site12,90300)
