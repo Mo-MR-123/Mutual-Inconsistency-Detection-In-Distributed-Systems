@@ -11,8 +11,8 @@ import java.nio.file.{Files, Paths}
 import scala.util.Random
 
 class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpecLike {
-  "Experiment" must {
-    "Detect Inconsistency" in {
+  "ExperimentVersionVector" must {
+    "Execute random operations and capture inconsistencies together with execution times" in {
           def randomString(length: Int) = {
             val r = new scala.util.Random
             val sb = new StringBuilder
