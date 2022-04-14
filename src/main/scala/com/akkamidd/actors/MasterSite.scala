@@ -2,7 +2,8 @@ package com.akkamidd.actors
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.akkamidd.actors.Site.{Merged, SiteProtocol}
-import java.io.{File, PrintWriter}
+
+import java.io.PrintWriter
 
 // the master actor who spawn the sites
 object MasterSite {

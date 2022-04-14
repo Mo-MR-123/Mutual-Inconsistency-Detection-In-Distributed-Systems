@@ -6,7 +6,6 @@ import com.akkamidd.actors.MasterSite.Broadcast
 import org.slf4j.Logger
 
 import java.io.PrintWriter
-import scala.reflect.Manifest.Nothing
 
 
 object Site {
@@ -19,7 +18,6 @@ object Site {
                                fileName: String,
                                partitionSet: Set[ActorRef[SiteProtocol]]
                              ) extends SiteProtocol
-//  final case class FileDeletion(replyTo: ActorRef[SiteProtocol]) extends SiteProtocol
   final case class FileUpdate(
                                originPointer: (String, String),
                                parent: ActorRef[MasterSite.MasterSiteProtocol],

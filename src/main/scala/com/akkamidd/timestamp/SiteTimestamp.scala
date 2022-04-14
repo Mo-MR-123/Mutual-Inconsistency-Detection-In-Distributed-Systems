@@ -17,7 +17,6 @@ object SiteTimestamp {
                                parent: ActorRef[MasterTimestampProtocol],
                                partitionSet: Set[ActorRef[TimestampProtocol]]
                              ) extends TimestampProtocol
-  //  final case class FileDeletion(replyTo: ActorRef[TimestampProtocol]) extends TimestampProtocol
   final case class FileUpdate(
                                fileName: String,
                                parent: ActorRef[MasterTimestampProtocol],
@@ -310,22 +309,6 @@ object SiteTimestamp {
         }
         counter += 1
       }
-
-
-//      if (time1._1.toLong > time2._1.toLong || time1._2.toLong > time2._2.toLong) {
-//        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 > $time2")
-//        fileList = fileList + (filename -> time1)
-//
-//        counter += 1
-//      } else if (time1._1.toLong < time2._1.toLong || time1._2.toLong < time2._2.toLong) {
-//        log.info(s"[Inconsistency Detected] For File $filename -> version conflict detected: $time1 < $time2")
-//        fileList = fileList + (filename -> time2)
-//
-//        counter += 1
-//      } else {
-//        log.info(s"[Consistency Detected] For File $filename -> no version conflict detected: $time1 <=> $time2")
-//        fileList = fileList + (filename -> time1)
-//      }
     }
 
     fileList = fileList ++ uniqueFilesP1 ++ uniqueFilesP2
