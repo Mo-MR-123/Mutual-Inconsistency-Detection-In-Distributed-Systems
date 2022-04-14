@@ -13,7 +13,7 @@ object ResultsFormat {
   def printVersionVector(numberOfSites: Int, numberOfRuns: Int): Unit = {
     val writer = new PrintWriter(new File("experiments/csv_format/version_vector_formatted.csv"))
     writer.write("sites,run,icd,exec\n")
-    for (siteIdx <- 1 to numberOfSites) {
+    for (siteIdx <- 2 to numberOfSites) {
       for (runIdx <- 1 to numberOfRuns) {
         val icdCount = intCount("experiments/results/run_" + runIdx + "_version_vector_sites_" + siteIdx + "_icd.txt")
         val execCount = intCount("experiments/results/run_" + runIdx + "_version_vector_sites_" + siteIdx + "_exec.txt")
@@ -21,13 +21,13 @@ object ResultsFormat {
       }
     }
     writer.close()
-    print("Results have been formatted for Version Vector, see file: version_vector_formatted.csv")
+    print("Results have been formatted for Version Vector, see file: version_vector_formatted.csv\n")
   }
 
   def printTimestamp(numberOfSites: Int, numberOfRuns: Int): Unit = {
     val writer = new PrintWriter(new File("experiments/csv_format/timestamp_formatted.csv"))
     writer.write("sites,run,icd,exec\n")
-    for (siteIdx <- 1 to numberOfSites) {
+    for (siteIdx <- 2 to numberOfSites) {
       for (runIdx <- 1 to numberOfRuns) {
         val icdCount = intCount("experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_icd.txt")
         val execCount = intCount("experiments/results/run_" + runIdx + "_timestamps_sites_" + siteIdx + "_exec.txt")

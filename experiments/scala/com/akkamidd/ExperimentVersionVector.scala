@@ -68,7 +68,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                 randomValue match {
                   // Upload
                   case x if x <= 10 =>
-                    val randomSite = listSiteNames(random.nextInt(siteIdx))
+                    val randomSite = listSiteNames(random.nextInt(listSiteNames.size))
                     val time = System.currentTimeMillis().toString
                     listOriginPointers = listOriginPointers + (randomSite -> time)
                     val fileName = randomString(5) + ".txt"
@@ -77,7 +77,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                   // Update
                   case x if x > 10 && x <= 50 =>
                     if (listOriginPointers.nonEmpty) {
-                      val randomSite = listSiteNames(random.nextInt(siteIdx))
+                      val randomSite = listSiteNames(random.nextInt(listSiteNames.size))
                       val randomFileIndex = random.nextInt(listOriginPointers.size)
                       val tuple = listOriginPointers.toList(randomFileIndex)
                       UtilFuncs.callUpdateFile(randomSite, tuple, masterSite, partitionList)
@@ -86,7 +86,7 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                   // Split
                   case x if x > 50 && x <= 75 =>
                     if (thresholdSplit != 0) {
-                      val randomSite = listSiteNames(random.nextInt(siteIdx))
+                      val randomSite = listSiteNames(random.nextInt(listSiteNames.size))
                       val previousPartitionList = partitionList
                       partitionList = UtilFuncs.callSplit(masterSite, partitionList, randomSite, timeoutSplit, timeoutSplit)
                       if (!previousPartitionList.equals(partitionList)) {
@@ -97,8 +97,8 @@ class ExperimentVersionVector extends ScalaTestWithActorTestKit with AnyWordSpec
                   // Merge
                   case x if x > 75 && x < 100 =>
                     if (thresholdMerge != 0) {
-                      val randomSite1 = listSiteNames(random.nextInt(siteIdx))
-                      val randomSite2 = listSiteNames(random.nextInt(siteIdx))
+                      val randomSite1 = listSiteNames(random.nextInt(listSiteNames.size))
+                      val randomSite2 = listSiteNames(random.nextInt(listSiteNames.size))
                       val previousPartitionList = partitionList
                       partitionList = UtilFuncs.callMerge(randomSite1, randomSite2, masterSite, partitionList, timeoutMerge, timeoutMerge, Option(writerIcd))
                       if (!previousPartitionList.equals(partitionList)) {

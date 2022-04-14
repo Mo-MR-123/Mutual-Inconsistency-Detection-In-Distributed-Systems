@@ -2,6 +2,8 @@ name := "akka-scala-MIDD"
 
 version := "1.0"
 
+Test / scalaSource := baseDirectory.value / "experiments" / "scala"
+
 scalaVersion := "2.13.1"
 
 lazy val akkaVersion = "2.6.18"
