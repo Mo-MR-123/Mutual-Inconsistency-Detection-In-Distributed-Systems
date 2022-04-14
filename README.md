@@ -17,17 +17,19 @@ docker build -t group-7-midd .
 ## Run customized experiments
 
 You can choose to run the akka system with a sequence of operations defined by yourself, by simply passing the
-arguments in the right format in sbt shell. The format of the expected commands that can be issues against the akka system is the following:
+arguments in the right format in sbt shell. The format of the expected commands that can be issued against the akka system in the sbt shell is the following (<ARG ...> indicates a required arguments to be given, <ARG OPTIONAL ...> is not required but a value can be given if required):
 
 ```
 upload-<ARG: siteName (must exist)>-<ARG: fileName>
 
 update-<ARG: the site name that will update the file>-<ARG: origin pointer of the file to update>
 
-split-<ARG: site name where the split needs to happen>-<ARG OPTIONAL: timeout after/before split>
+split-<ARG: site name where the split needs to happen>-<ARG OPTIONAL: timeout in ms after and before split>
 
-merge-<ARG: sitename from which to send filelist to other partition>-<ARG: siteName that should get the filelist from the sending siteName>-{<ARG: partition set that needs to be merged e.g. 10,22,11>}-<ARG OPTIONAL: timeout after/before merge>
+merge-<ARG: sitename from which to send filelist to other partition>-<ARG: siteName that should get the filelist from the sending siteName>-<ARG OPTIONAL: timeout in ms after and before merge>
 ```
+NOTE: origin pointer has the format `(siteName,timestamp)` including the parentheses and the comma.
+
 Steps and examples are given below:
 
 Run/Create sbt shell from the created image:
@@ -64,9 +66,9 @@ or simply
 
 Will result in the following partition list:  
 
-**List(Set(0, 1,.... 23)) ---> List(Set(0, 1,.... 10), Set(11, 12, ... 24))**
+**List(Set(Site0, Site1,.... Site23)) ---> List(Set(Site0, Site1,.... Site10), Set(Site11, Site12, ... Site24))**
 
-Now splitting the partition list into two partition sets at site 15, with timeout 2000
+Now splitting the partition list into two partition sets at site 15, with timeout 2000ms
 
 ```
 > split-Site15-2000
@@ -74,7 +76,7 @@ Now splitting the partition list into two partition sets at site 15, with timeou
 
 Results in the following partition list:
 
-**List(Set(0, 1,.... 10), Set(11, 12, ... 24)) ---> List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16, 17, ... 24))**
+**List(Set(Site0, Site1,.... Site10), Set(Site11, Site12, ... Site24)) ---> List(Set(Site0, Site1,.... Site10), Set(Site11, Site12, Site13, Site14, Site15), Set(Site16, Site17, ... Site24))**
 
 
 > Note that after the split, two new partition sets will be generated:
@@ -92,14 +94,18 @@ Update the file with origin pointer `(siteName,timestamp)` e.g. (12,90300) in si
 > update-Site12-(Site12,90300)
 ```
 
-To merge, for example, the partition sets `{Site0, Site1, ..., Site}`  (in this case, all the three partitions will be merged together)
-let site 12 send its file list to site 20, so that site 20 can check if its file list is consistent with that of site 12,
-and deal with the inconsistency if there is any. Add a 1500ms `timeout` (optional)
-**List(Set(0, 1,.... 10), Set(11, 12, 13, 14, 15), Set(16, 17, ... 24)) ------> List(Set(0, 1,.... 23))**
-
+To merge, for example, the partition sets `{Site11, Site12, Site13, Site14, Site15}` and `{Site16, Site17, ... Site24}` then one of the sites in one of the partition sets needs to send its own filelist to a site in the other partition set. For instance, site 12 sends its file list to site 20, so that site 20 can check if its file list is consistent with that of site 12,
+and deal with the inconsistencies if there are any. This can be done using the following command:  
+```
+> merge-12-20
+```
+Just like for the `split` command, also here a timeout can be given:
 ```
 > merge-12-20-1500
 ```
+The expected result from this command is the following:
+
+**List(Set(Site0, Site1,.... Site10), Set(Site11, Site12, Site13, Site14, Site15), Set(Site16, Site17, ... Site24)) ---> List(Set(Site0, Site1,.... Site10), Set(Site11, Site12,.... Site23))**
 
 ### Run Experiments
 
@@ -119,21 +125,14 @@ Use the following command to run all the experiments at once.
 docker run -it --rm group-7-midd ./sbt test
 ```
 
+There are two experiments: `ExperimentTimestamps` and `ExperimentVersionVector`. For both of the experiments, the values `spawningActorsTimeout, timeoutSplit, timeoutMerge, thresholdSplit and thresholdMerge` are constants and the only changing variable is the `numSites` value which indicates the sites that need to be spawned. 
 
-There are two experiments: ExperimentTimestamps and ExperimentVersionVector. 
+`spawningActorsTimeout` indicates the timeout that is used for waiting for all the sites to be spawned to ensure all sites are spawned for all consequent operations. `timeoutSplit` and `timeoutMerge` are used for the timeouts for before and after a split and merge respectively. There are two counters, one that keeps track of how many splits have occurred and one that keeps track of how many merges have occurred during a run. Each time a merge or a split occurs, the corresponding counter is incremented. The `thresholdSplit` and `thresholdMerge` values are used to stop a run of an experiment when those values are reached by one of the aforementioned counters. This is done so that a run does not go on indefinitely.
 
-[//]: # (The configuration of each experiment:)
+The experiments are run 10 times for each value of `numSites`. `numSites` is 2 initially (1 is not possible since the experiments will not terminate as there will be no splits and merges occurring with 1 site) and the value gets incremented by 1 until it reaches 20 sites which stops the experiment. During a run, which operation (upload, update, merge or split) is performed depends on a random value. If the random value falls in one of the intervals of an operation, then the corresponding operation is performed. This keeps going like this until either the `thresholdSplit` or the `thresholdMerge` are reached. To make sure that the same operations are performed by both algorithms in each run, a seed is set for the random number generator. 
 
-[//]: # (| Experiment_name | Sequence of Operations                                                                                              | Expected Result after merge |)
+Each time a merge is performed, a check is done for inconsistencies. The amount of inconsistencies detected is written to a file. Format of the filename used for timestamp experiment inconsistencies results: `run_<num_run>_timestamps_sites_<num_sites>_icd.txt`. Format of the filename used for version vector algorithm experiment inconsistencies results: `run_<num_run>_version_vector_sites_<num_sites>_icd.txt`.
 
-[//]: # (| --------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------- |)
+Lastly, at the end of each run the execution time (in ms) is printed to the console and written to a file. The format used for the timestamp execution time filename: `run_<num_run>_timestamps_sites_<num_sites>_exec.txt`. The format used for the version vector execution time filename: `run_<num_run>_version_vector_sites_<num_sites>_exec.txt`.
 
-[//]: # (| Experiment1     | 4 sites, upload-0-test.txt split-1-1000 update-0-&#40;0,ts1&#41; update-2-&#40;2,ts1&#41; update-3-&#40;3,ts1&#41; merge-0-2-&#40;0,1,2,3&#41;-1000 | &#40;0->1,1->0,2->1,3->1&#41;       |)
-
-[//]: # (| Experiment2     | 24 sites, upload-20 update-0 update-1 split-10 split-15 merge-{12,20}                                               |                             |)
-
-[//]: # (| Experiment3     |                                                                                                                     |                             |)
-
-[//]: # (| Experiment4     |                                                                                                                     |                             |)
-
-the run time of each experiment will be printed in the console after it is finished.
+All the generated results are stored in the `results` folder under the `experiments` folder. To be able to visualize the results and error bars in the form of plots, a csv file can be created from the generated files under `results`. This can be done by running the `ResultsFormat.scala` under `experiments/scala/com/akkamidd` folder. It will generate separate csv files for both algorithms under folder `experiments/csv_format` containing the columns `sites, run, icd, exec` and the values of each run as rows. The generated csv files can then read by jupyter notebook file called `plot.ipynb` under `experiments` folder which is responsible for plotting the values and the error bars. Lastly, one-way ANOVA test is conducted in `plot.ipynb` on the values to see whether the inconsistency and execution time results between the algorithms are significant or not.
