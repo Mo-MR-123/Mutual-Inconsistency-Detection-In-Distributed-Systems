@@ -115,6 +115,11 @@ The expected result from this command is the following:
 
 **List(Set(Site0, Site1,.... Site10), Set(Site11, Site12, Site13, Site14, Site15), Set(Site16, Site17, ... Site24)) ---> List(Set(Site0, Site1,.... Site10), Set(Site11, Site12,.... Site23))**
 
+Lastly, to quit the session and go back to the sbt shell, the following command can be given:
+```
+  quit
+```
+  
 ### Run Experiments
 
 To run a specific experiment, replace `<ExperimentName>` with the experiment that you want to run in the following docker command:
