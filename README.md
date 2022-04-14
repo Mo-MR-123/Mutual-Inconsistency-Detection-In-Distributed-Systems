@@ -13,6 +13,7 @@
 - Scala 2.12.\* (2.12.12+)
 - JVM 1.8 compatible JDK
 - SBT 1.4.9+
+- Python 3.8+
 
 ## Build
 
@@ -149,3 +150,32 @@ Each time a merge is performed, a check is done for inconsistencies. The amount 
 Lastly, at the end of each run the execution time (in ms) is printed to the console and written to a file. The format used for the timestamp execution time filename: `run_<num_run>_timestamps_sites_<num_sites>_exec.txt`. The format used for the version vector execution time filename: `run_<num_run>_version_vector_sites_<num_sites>_exec.txt`.
 
 All the generated results are stored in the `results` folder under the `experiments` folder. To be able to visualize the results and error bars in the form of plots, a csv file can be created from the generated files under `results`. This can be done by running the `ResultsFormat.scala` under `experiments/scala/com/akkamidd` folder. It will generate separate csv files for both algorithms under folder `experiments/csv_format` containing the columns `sites, run, icd, exec` and the values of each run as rows. The generated csv files can then read by jupyter notebook file called `plot.ipynb` under `experiments` folder which is responsible for plotting the values and the error bars. Lastly, one-way ANOVA test is conducted in `plot.ipynb` on the values to see whether the inconsistency and execution time results between the algorithms are significant or not.
+
+There is also a python script called `plots_and_anova.py` that does the same thing as `plot.ipnyb` under `experiments` folder. It is created in case the plots and anova tests need to be generated without using jupyter notebook.
+
+In order to have the required libraries' setup for running the script, follow these steps:
+
+1. Execute the following command in `experiments` folder to create the virtual environment 
+```
+python3 -m venv venv
+```
+2. Activate the virtual environment
+
+In Windows:
+```
+venv\Scripts\activate
+```
+In Linux:
+```
+source venv/bin/activate
+```
+3. Install the required libraries using `requirements.txt` file in `experiments` folder
+```
+pip3 install -r requirements.txt
+```
+4. Run the `plots_and_anova.py`
+```
+python3 plots_and_anova.py
+```
+
+The script will generate two images containing the figures/plots for inconsistencies and execution times and it will save them in `experiments` folder. Also, the one-way ANOVA test results are printed to the console.
