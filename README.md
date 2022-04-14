@@ -1,6 +1,6 @@
 # Mutual Inconsistency Detection In Distributed Systems Group7
 
-## Authors:
+## Authors
 <ul>
   <li> Adam Kadiev </li>
   <li> Mohamed Rashad </li>
