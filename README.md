@@ -10,10 +10,10 @@
 
 ## Requirements
 
-- Scala 2.12.\* (2.12.12+)
+- Scala 2.13.1
 - JVM 1.8 compatible JDK
-- SBT 1.4.9+
 - Python 3.8+
+- SBT 1.6.2
 
 ## Build
 
