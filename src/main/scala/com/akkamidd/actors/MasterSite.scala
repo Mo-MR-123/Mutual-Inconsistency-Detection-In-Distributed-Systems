@@ -37,6 +37,12 @@ object MasterSite {
     context => masterSiteReceive(context, List(), debugMode)
   }
 
+  /**
+   * Given a site name, find the corresponding ActorRef
+   * @param siteName The given site name
+   * @param children Child (site) list of master site
+   * @return The corresponding ActorRef
+   */
   def findSiteGivenName(
                          siteName: String,
                          children: List[ActorRef[SiteProtocol]]
@@ -50,6 +56,12 @@ object MasterSite {
     None
   }
 
+  /**
+   * Transform the partition list of site names to partition list of corresponding ActorRefs
+   * @param children The child (site) list of master site
+   * @param partitionSetString The original partition list which is represented by site names
+   * @return The partition list with ActorRefs
+   */
   def getPartitionActorRefSet(
                                children: List[ActorRef[SiteProtocol]],
                                partitionSetString: Set[String]
@@ -60,7 +72,13 @@ object MasterSite {
     })
   }
 
-  // given a site "from", find a partition that the site is currently in
+
+  /**
+   * Given a site "from", find a partition that the site is currently in
+   * @param fromSite the given site name
+   * @param sitesPartitionedList the current partition list
+   * @return the partition set that "fromSite" is currently in
+   */
   def findPartitionSet(
                         fromSite: String,
                         sitesPartitionedList: List[Set[String]]
@@ -75,6 +93,13 @@ object MasterSite {
     Set[String]()
   }
 
+  /**
+   * A state machine where state is reprensented by context and children list. By receiving message it will moved to another state
+   * @param context The context of master site
+   * @param children The children (site) list of master site
+   * @param debugMode Set to true to enable the debugging information in console
+   * @return The new state
+   */
   def masterSiteReceive(
                          context: ActorContext[MasterSiteProtocol],
                          children: List[ActorRef[SiteProtocol]],

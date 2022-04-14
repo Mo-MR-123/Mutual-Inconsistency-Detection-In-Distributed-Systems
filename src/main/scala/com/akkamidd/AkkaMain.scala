@@ -93,6 +93,14 @@ object UtilFuncsTimestamp {
     Await.ready(actorSystem.whenTerminated, awaitDuration)
   }
 
+  /**
+   * A interface that is used for calling the upload method
+   * @param siteName The site where a file is going to be uploaded to
+   * @param timestamp The current timestamp
+   * @param masterSystem The master system where file is to be uploaded
+   * @param fileName The name of the file that is going to be uploaded
+   * @param partitionList The current partition list
+   */
   def callUploadFile(
                       siteName: String,
                       timestamp: String,
@@ -104,6 +112,13 @@ object UtilFuncsTimestamp {
     masterSystem ! MasterSiteTimestamp.FileUploadMasterSite(siteName, timestamp, fileName, partitionList)
   }
 
+  /**
+   * A interface that is used for calling the update method
+   * @param siteName The site where a file is going to be updated
+   * @param originPointer The
+   * @param masterSystem The master system where file is to be updated
+   * @param partitionList The current partition list
+   */
   def callUpdateFile(
                       siteName: String,
                       fileName: String,
@@ -138,6 +153,17 @@ object UtilFuncsTimestamp {
     siteNameList.toSet +: partitionList
   }
 
+  /**
+   *
+   * @param siteNameFrom A site from the partition P that is going to be merged in another partition
+   * @param siteNameTo A site from the partition that P is going to be merged into
+   * @param masterSystem The master system where merge is going to happen
+   * @param sitesPartitionedList The original partition list before merging
+   * @param timeoutBeforeExec The timeout set before the merge as a laxity to make sure the previous operations are completed before merge start
+   * @param timeoutAfterExec The timeout setting after the merge as a laxity to make sure the merge can be completed
+   * @param writerIcd The file writer for ICD result
+   * @return
+   */
   def callMerge(
                  siteNameFrom: String,
                  siteNameTo: String,
@@ -162,6 +188,16 @@ object UtilFuncsTimestamp {
     newPartitionList
   }
 
+  /**
+   *
+   * @param masterSystem The master system where splitting is going to happen
+   * @param sitesPartitionedList The original site partition before splitting
+   * @param siteAtWhichSplit The threshold of splitting. The sites whose name is lexicographically bigger than the threshold will be assigned to one partition
+   *                         while the rest will be assigned to another one
+   * @param timeoutBeforeExec The timeout set before the merge as a laxity to make sure the previous operations are completed before merge start
+   * @param timeoutAfterExec The timeout setting after the merge as a laxity to make sure the merge can be completed
+   * @return The
+   */
   def callSplit(
                  masterSystem: ActorSystem[MasterTimestampProtocol],
                  sitesPartitionedList: List[Set[String]],
@@ -181,7 +217,13 @@ object UtilFuncsTimestamp {
     newPartitionList
   }
 
-  //find the partition that the part is in
+  /**
+   * Split a specific partition into two new subpartitions.
+   * @param sitesPartitionedList The original partition list where splitting is going to happen
+   * @param siteAtWhichSplit The threshold of splitting. The sites whose name is lexicographically bigger than the threshold will be assigned to one partition
+   *                         while the rest will be assigned to another one
+   * @return A new partition list after splitting
+   */
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
                       siteAtWhichSplit: String
@@ -211,6 +253,13 @@ object UtilFuncsTimestamp {
     sitesPartitionedList
   }
 
+  /**
+   * Merge two specific partitions into one
+   * @param sitesPartitionedList The original partition list where merging is going to happen
+   * @param firstSite A site in the first partition that is going to be merged
+   * @param secondSite A site in the second partition that is going to be merged
+   * @return A new partition list after merging
+   */
   def mergePartition(
                       sitesPartitionedList: List[Set[String]],
                       firstSite: String,
@@ -247,6 +296,11 @@ object UtilFuncsTimestamp {
     newPartitionList :+ newPartition
   }
 
+  /**
+   * Print the current partition list
+   * @param sitesPartitionedList Current partition list
+   * @param logger The console logger
+   */
   def printCurrentNetworkPartition(
                                     sitesPartitionedList: List[Set[String]],
                                     logger: Logger
@@ -287,6 +341,14 @@ object UtilFuncs {
     Await.ready(actorSystem.whenTerminated, awaitDuration)
   }
 
+  /**
+   * A interface that is used for calling the upload method
+   * @param siteName The site where a file is going to be uploaded to
+   * @param timestamp The current timestamp
+   * @param masterSystem The master system where file is to be uploaded
+   * @param fileName The name of the file that is going to be uploaded
+   * @param partitionList The current partition list
+   */
   def callUploadFile(
                   siteName: String,
                   timestamp: String,
@@ -298,6 +360,13 @@ object UtilFuncs {
     masterSystem ! FileUploadMasterSite(siteName, timestamp, fileName, partitionList)
   }
 
+  /**
+   * A interface that is used for calling the update method
+   * @param siteName The site where a file is going to be updated
+   * @param originPointer The
+   * @param masterSystem The master system where file is to be updated
+   * @param partitionList The current partition list
+   */
   def callUpdateFile(
                   siteName: String,
                   originPointer: (String, String),
@@ -334,6 +403,17 @@ object UtilFuncs {
     siteNameList.toSet +: partitionList
   }
 
+  /**
+   *
+   * @param siteNameFrom A site from the partition P that is going to be merged in another partition
+   * @param siteNameTo A site from the partition that P is going to be merged into
+   * @param masterSystem The master system where merge is going to happen
+   * @param sitesPartitionedList The original partition list before merging
+   * @param timeoutBeforeExec The timeout set before the merge as a laxity to make sure the previous operations are completed before merge start
+   * @param timeoutAfterExec The timeout setting after the merge as a laxity to make sure the merge can be completed
+   * @param writerIcd The file writer for ICD result
+   * @return
+   */
   def callMerge(
                  siteNameFrom: String,
                  siteNameTo: String,
@@ -358,6 +438,16 @@ object UtilFuncs {
     newPartitionList
   }
 
+  /**
+   *
+   * @param masterSystem The master system where splitting is going to happen
+   * @param sitesPartitionedList The original site partition before splitting
+   * @param siteAtWhichSplit The threshold of splitting. The sites whose name is lexicographically bigger than the threshold will be assigned to one partition
+   *                         while the rest will be assigned to another one
+   * @param timeoutBeforeExec The timeout set before the merge as a laxity to make sure the previous operations are completed before merge start
+   * @param timeoutAfterExec The timeout setting after the merge as a laxity to make sure the merge can be completed
+   * @return The
+   */
   def callSplit(
                  masterSystem: ActorSystem[MasterSiteProtocol],
                  sitesPartitionedList: List[Set[String]],
@@ -377,7 +467,13 @@ object UtilFuncs {
     newPartitionList
   }
 
-  //find the partition that the part is in
+  /**
+   * Split a specific partition into two new subpartitions.
+   * @param sitesPartitionedList The original partition list where splitting is going to happen
+   * @param siteAtWhichSplit The threshold of splitting. The sites whose name is lexicographically bigger than the threshold will be assigned to one partition
+   *                         while the rest will be assigned to another one
+   * @return A new partition list after splitting
+   */
   def splitPartition(
                       sitesPartitionedList: List[Set[String]],
                       siteAtWhichSplit: String
@@ -408,6 +504,13 @@ object UtilFuncs {
     sitesPartitionedList
   }
 
+  /**
+   * Merge two specific partitions into one
+   * @param sitesPartitionedList The original partition list where merging is going to happen
+   * @param firstSite A site in the first partition that is going to be merged
+   * @param secondSite A site in the second partition that is going to be merged
+   * @return A new partition list after merging
+   */
   def mergePartition(
                       sitesPartitionedList: List[Set[String]],
                       firstSite: String,
@@ -444,6 +547,11 @@ object UtilFuncs {
     newPartitionList :+ newPartition
   }
 
+  /**
+   * Print the current partition list
+   * @param sitesPartitionedList Current partition list
+   * @param logger The console logger
+   */
   def printCurrentNetworkPartition(
                                     sitesPartitionedList: List[Set[String]],
                                     logger: Logger

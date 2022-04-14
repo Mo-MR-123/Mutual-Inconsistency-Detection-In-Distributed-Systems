@@ -53,9 +53,20 @@ object Site {
                                     fileListToReplace: Map[(String, String), Map[String, Int]]
                                   ) extends SiteProtocol
 
+  /**
+   * Method apply is called immediately when the site is spawned
+   * @param debugMode Set to true to print the debugging information
+   * @return return a hashmap that maintains the current state of the file list
+   */
   def apply(debugMode: Boolean): Behavior[SiteProtocol] =
     fromMap(Map[(String, String), Map[String, Int]](), debugMode) // A hashmap mapping origin pointers of files to their corresponding version vectors
 
+  /**
+   * A state machine where state is reprensented by a file list. By receiving message it will moved to another state
+   * @param fileList Current file list
+   * @param debugMode Set to true to print the debugging information
+   * @return a new state
+   */
   def fromMap(fileList: Map[(String, String), Map[String, Int]], debugMode: Boolean): Behavior[SiteProtocol] =  Behaviors.setup {
     context =>
       Behaviors.receiveMessage {
@@ -193,6 +204,14 @@ object Site {
       }
   }
 
+  /**
+   * Merge the received filelist into own fileList in order to duplicate the file as well as the corresponding version vector
+   * the original site
+   * @param fileList The own file list
+   * @param originPointer The origin pointer of the file that is duplicated
+   * @param versionVector The version vector of the file that is duplicated
+   * @return the merged file list
+   */
   private def mergeFileList(
                              fileList: Map[(String, String), Map[String, Int]],
                              originPointer: (String,String),
@@ -215,6 +234,14 @@ object Site {
     }
   }
 
+  /**
+   *
+   * @param fileList The own file list
+   * @param originPointer The origin pointer of the file to be updated
+   * @param siteName The name of the site where the file is originally updated
+   * @param newVal The new version number
+   * @return The updated file list
+   */
   private def updateFileList(
                       fileList: Map[(String, String), Map[String, Int]],
                       originPointer: (String, String),
