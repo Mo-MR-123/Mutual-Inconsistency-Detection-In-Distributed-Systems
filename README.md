@@ -14,6 +14,7 @@
 - JVM 1.8 compatible JDK
 - Python 3.8+
 - SBT 1.6.2
+- Docker
 
 ## Build
 
