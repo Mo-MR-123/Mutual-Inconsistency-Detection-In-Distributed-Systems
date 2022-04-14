@@ -130,7 +130,7 @@ testOnly *ExperimentTimestamps
 Use the following command to run all the experiments at once.
 
 ```
-docker run -it --rm group-7-midd ./sbt test
+docker run -it --rm --mount type=bind,source=${PWD}/experiments,target=/MIDD/experiments group-7-midd ./sbt test
 ```
 
 There are two experiments: `ExperimentTimestamps` and `ExperimentVersionVector`. For both of the experiments, the values `spawningActorsTimeout = 100ms`, `timeoutSplit = 100ms`, `timeoutMerge = 100ms`, `thresholdSplit = 20` and `thresholdMerge = 20` are pre-defined constants and the only changing variable is the `numSites` value which indicates the sites that need to be spawned. 
