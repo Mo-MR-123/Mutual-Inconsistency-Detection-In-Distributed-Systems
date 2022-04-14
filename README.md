@@ -1,5 +1,13 @@
 # Mutual Inconsistency Detection In Distributed Systems Group7
 
+## Authors:
+<ul>
+  <li> Adam Kadiev </li>
+  <li> Mohamed Rashad </li>
+  <li> Hanzhang Lin </li>
+  <li> Kevin Nanhekhan </li>
+</ul>
+
 ## Requirements
 
 - Scala 2.12.\* (2.12.12+)
