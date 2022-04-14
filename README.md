@@ -120,11 +120,11 @@ The expected result from this command is the following:
 To run a specific experiment, replace `<ExperimentName>` with the experiment that you want to run in the following docker command:
 
 ```
-docker run -it --rm --mount type=bind,source=${PWD}/experiments,target=/MIDD/experiments group-7-midd ./sbt testOnly *<ExperimentName>
+docker run -it --rm --mount type=bind,source=${PWD}/experiments,target=/MIDD/experiments group-7-midd ./sbt "testOnly *<ExperimentName>"
 ```
 e.g.
 ```
-docker run -it --rm --mount type=bind,source=${PWD}/experiments,target=/MIDD/experiments group-7-midd ./sbt testOnly *ExperimentTimestamps
+docker run -it --rm --mount type=bind,source=${PWD}/experiments,target=/MIDD/experiments group-7-midd ./sbt "testOnly *ExperimentTimestamps"
 ```
 
 Use the following command to run all the experiments at once.
